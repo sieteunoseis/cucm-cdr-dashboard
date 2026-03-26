@@ -10,17 +10,24 @@ export function formatDuration(seconds: number | null | undefined): string {
   return `${h}h ${remM}m`;
 }
 
-export function formatDurationFromInterval(
-  interval: string | null | undefined,
-): string {
+export function formatDurationFromInterval(interval: any): string {
   if (!interval) return "0s";
-  const hms = interval.match(/^(\d{2}):(\d{2}):(\d{2})$/);
+  // Postgres pg driver returns interval as object { hours, minutes, seconds }
+  if (typeof interval === "object") {
+    const totalSec =
+      (interval.hours || 0) * 3600 +
+      (interval.minutes || 0) * 60 +
+      (interval.seconds || 0);
+    return formatDuration(totalSec);
+  }
+  const str = String(interval);
+  const hms = str.match(/^(\d{2}):(\d{2}):(\d{2})$/);
   if (hms) {
     const totalSec =
       parseInt(hms[1]) * 3600 + parseInt(hms[2]) * 60 + parseInt(hms[3]);
     return formatDuration(totalSec);
   }
-  return interval;
+  return str;
 }
 
 export function formatTimestamp(ts: string | null | undefined): string {
