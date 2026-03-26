@@ -213,9 +213,10 @@ export function RelatedCalls({
         {results.map((r) => {
           const isConnected = r.datetimeconnect != null;
           const isTransfer =
-            !!r.lastredirectdn ||
             r.origcallterminationonbehalfof === 5 ||
-            r.origcallterminationonbehalfof === 6;
+            r.origcallterminationonbehalfof === 6 ||
+            r.destcallterminationonbehalfof === 5 ||
+            r.destcallterminationonbehalfof === 6;
           const isConference = (r.joinonbehalfof || 0) !== 0;
 
           return (

@@ -25,20 +25,12 @@ export function isRecordingLeg(result: CdrResult): boolean {
   );
 }
 
-// Transfer: lastredirectdn populated and redirect reason indicates transfer
-// On-behalf-of values: 5=transfer, 6=consult transfer
+// Transfer: on-behalf-of 5=transfer, 6=consult transfer only
+// Don't trigger on lastredirectdn alone — UCCE populates it for normal routing
 export function isTransfer(result: CdrResult): boolean {
   const obo = result.origcallterminationonbehalfof || 0;
   const dObo = result.destcallterminationonbehalfof || 0;
-  const redirectReason = result.lastredirectredirectreason || 0;
-  return (
-    !!result.lastredirectdn ||
-    obo === 5 ||
-    obo === 6 ||
-    dObo === 5 ||
-    dObo === 6 ||
-    redirectReason === 15 // Call Deflection
-  );
+  return obo === 5 || obo === 6 || dObo === 5 || dObo === 6;
 }
 
 // Conference: joinonbehalfof is non-zero (values: 5=conference, etc.)
