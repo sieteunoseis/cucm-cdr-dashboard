@@ -1,4 +1,5 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { SearchBar } from "@/components/search/SearchBar";
 import { TimeRange } from "@/components/search/TimeRange";
 import { ResultRow, isRecordingLeg } from "@/components/search/ResultRow";
@@ -6,7 +7,11 @@ import { useSearch } from "@/hooks/useSearch";
 import { Button } from "@/components/ui/button";
 
 export function SearchPage() {
-  const [timeRange, setTimeRange] = useState("24h");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialQuery = searchParams.get("q") || "";
+  const initialTimeRange = searchParams.get("t") || "24h";
+
+  const [timeRange, setTimeRange] = useState(initialTimeRange);
   const [limit, setLimit] = useState(100);
   const [hideRecording, setHideRecording] = useState(false);
   const { results, count, loading, error, search } = useSearch();
@@ -23,19 +28,35 @@ export function SearchPage() {
 
   const handleSearch = useCallback(
     (query: string) => {
+      setSearchParams({ q: query, t: timeRange }, { replace: true });
       search({
         number: query,
         last: timeRange,
         limit: String(limit),
       });
     },
-    [search, timeRange, limit],
+    [search, timeRange, limit, setSearchParams],
   );
+
+  // Re-run search when returning via back button
+  useEffect(() => {
+    if (initialQuery && results.length === 0 && !loading) {
+      search({
+        number: initialQuery,
+        last: initialTimeRange,
+        limit: String(limit),
+      });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-6">
       <div className="space-y-4">
-        <SearchBar onSearch={handleSearch} loading={loading} />
+        <SearchBar
+          onSearch={handleSearch}
+          loading={loading}
+          initialValue={initialQuery}
+        />
         <TimeRange selected={timeRange} onSelect={setTimeRange} />
       </div>
       {error && (
@@ -81,7 +102,7 @@ export function SearchPage() {
           )}
         </div>
       )}
-      {!loading && results.length === 0 && count === 0 && (
+      {!loading && results.length === 0 && count === 0 && !initialQuery && (
         <div className="text-center py-12 text-muted-foreground">
           Search for a phone number, device name, or user ID to get started.
         </div>

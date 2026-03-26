@@ -4,10 +4,15 @@ import { Input } from "@/components/ui/input";
 interface SearchBarProps {
   onSearch: (query: string) => void;
   loading?: boolean;
+  initialValue?: string;
 }
 
-export function SearchBar({ onSearch, loading }: SearchBarProps) {
-  const [value, setValue] = useState("");
+export function SearchBar({
+  onSearch,
+  loading,
+  initialValue = "",
+}: SearchBarProps) {
+  const [value, setValue] = useState(initialValue);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
