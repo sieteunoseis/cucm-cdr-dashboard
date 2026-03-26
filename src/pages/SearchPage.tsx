@@ -1,10 +1,12 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { SearchBar } from "@/components/search/SearchBar";
 import { TimeRange } from "@/components/search/TimeRange";
 import { ResultRow, isRecordingLeg } from "@/components/search/ResultRow";
 import { useSearch } from "@/hooks/useSearch";
 import { Button } from "@/components/ui/button";
+
+const REFRESH_INTERVAL = 30000;
 
 export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -14,6 +16,8 @@ export function SearchPage() {
   const [timeRange, setTimeRange] = useState(initialTimeRange);
   const [limit, setLimit] = useState(100);
   const [hideRecording, setHideRecording] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const lastSearchRef = useRef<Record<string, string> | null>(null);
   const { results, count, loading, error, search } = useSearch();
 
   const filteredResults = useMemo(() => {
@@ -29,11 +33,9 @@ export function SearchPage() {
   const handleSearch = useCallback(
     (query: string) => {
       setSearchParams({ q: query, t: timeRange }, { replace: true });
-      search({
-        number: query,
-        last: timeRange,
-        limit: String(limit),
-      });
+      const params = { number: query, last: timeRange, limit: String(limit) };
+      lastSearchRef.current = params;
+      search(params);
     },
     [search, timeRange, limit, setSearchParams],
   );
@@ -41,13 +43,24 @@ export function SearchPage() {
   // Re-run search when returning via back button
   useEffect(() => {
     if (initialQuery && results.length === 0 && !loading) {
-      search({
+      const params = {
         number: initialQuery,
         last: initialTimeRange,
         limit: String(limit),
-      });
+      };
+      lastSearchRef.current = params;
+      search(params);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-refresh
+  useEffect(() => {
+    if (!autoRefresh || !lastSearchRef.current) return;
+    const id = setInterval(() => {
+      if (lastSearchRef.current) search(lastSearchRef.current);
+    }, REFRESH_INTERVAL);
+    return () => clearInterval(id);
+  }, [autoRefresh, search]);
 
   return (
     <div className="space-y-6">
@@ -57,7 +70,17 @@ export function SearchPage() {
           loading={loading}
           initialValue={initialQuery}
         />
-        <TimeRange selected={timeRange} onSelect={setTimeRange} />
+        <div className="flex items-center justify-between">
+          <TimeRange selected={timeRange} onSelect={setTimeRange} />
+          <Button
+            variant={autoRefresh ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setAutoRefresh(!autoRefresh)}
+            disabled={!lastSearchRef.current}
+          >
+            {autoRefresh ? "Auto-refresh on (30s)" : "Auto-refresh"}
+          </Button>
+        </div>
       </div>
       {error && (
         <div className="rounded-lg bg-destructive/10 p-4 text-destructive text-sm">
