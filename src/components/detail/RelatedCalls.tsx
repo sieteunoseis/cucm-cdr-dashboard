@@ -38,39 +38,42 @@ function describeAction(
   prevType: FlowStep["type"] | null,
   isFirst: boolean,
   isLast: boolean,
-  originalDialed: string | null,
 ): string {
   const cause = leg.destcause_description || "";
   const called = leg.finalcalledpartynumber || "";
   const origDialed = leg.originalcalledpartynumber || "";
 
-  if (isOrig && isFirst && type === "gateway") return "Inbound call";
-  if (isOrig && isFirst && type === "device") {
-    if (originalDialed && originalDialed !== called) {
-      return `Dialed ${originalDialed}`;
+  if (isOrig) {
+    if (type === "gateway") return "Inbound call";
+    if (isFirst && type === "device") {
+      return origDialed
+        ? `Dialed ${origDialed}`
+        : called
+          ? `Dialed ${called}`
+          : "Originated call";
     }
-    return called ? `Dialed ${called}` : "Originated call";
-  }
-  if (isOrig && !isFirst && type === "device") {
-    if (originalDialed && origDialed !== called) {
-      return `Dialed ${originalDialed}`;
+    if (!isFirst && type === "device") {
+      // This device appears as originator on a later leg — they dialed out
+      if (origDialed && origDialed !== called) {
+        return `Dialed ${origDialed}`;
+      }
+      return called ? `Dialed ${called}` : "Originated call";
     }
-    return "Answered";
-  }
-
-  if (!isOrig) {
-    if (type === "gateway") return "Routed to gateway";
-    if (type === "trunk") {
-      if (cause === "Call split") return "Call split to trunk";
-      return "Routed to trunk";
-    }
-    if (type === "cti") return "Routed to CTI";
-    if (isLast && type === "device") return "Delivered to agent";
-    if (type === "device" && prevType === "trunk") return "Delivered";
-    return "Connected";
+    if (type === "trunk") return "Routed via trunk";
+    if (type === "cti") return "Routed via CTI";
+    return "";
   }
 
-  return "";
+  // Destination
+  if (type === "gateway") return "Routed to gateway";
+  if (type === "trunk") {
+    if (cause === "Call split") return "Call split to trunk";
+    return "Routed to trunk";
+  }
+  if (type === "cti") return "Routed to CTI";
+  if (isLast && type === "device") return "Delivered";
+  if (type === "device" && prevType === "trunk") return "Delivered";
+  return "Connected";
 }
 
 function buildCallFlow(primaryCdr: any, related: any[]): FlowStep[] {
@@ -82,9 +85,6 @@ function buildCallFlow(primaryCdr: any, related: any[]): FlowStep[] {
 
   const steps: FlowStep[] = [];
   const seen = new Set<string>();
-
-  const firstLeg = allLegs[0];
-  const originalDialed = firstLeg?.originalcalledpartynumber || null;
 
   for (let i = 0; i < allLegs.length; i++) {
     const leg = allLegs[i];
@@ -100,15 +100,7 @@ function buildCallFlow(primaryCdr: any, related: any[]): FlowStep[] {
       seen.add(origName);
       const type = mapDeviceType(leg.orig_device_type);
       const isFirst = steps.length === 0;
-      const action = describeAction(
-        leg,
-        type,
-        true,
-        prevType,
-        isFirst,
-        false,
-        originalDialed,
-      );
+      const action = describeAction(leg, type, true, prevType, isFirst, false);
       steps.push({
         label: type === "gateway" ? caller || origName : origDesc,
         detail: `${caller ? caller + " • " : ""}${origName}`,
@@ -128,7 +120,6 @@ function buildCallFlow(primaryCdr: any, related: any[]): FlowStep[] {
         prevType,
         false,
         isLastLeg,
-        originalDialed,
       );
       let detail = `${called ? called + " • " : ""}${destName}`;
       if (leg.lastredirectdn) {
