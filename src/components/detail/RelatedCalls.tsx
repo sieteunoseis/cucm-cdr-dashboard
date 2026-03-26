@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -177,11 +177,20 @@ export function RelatedCalls({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [windowSec, setWindowSec] = useState(120);
+  const [debouncedWindow, setDebouncedWindow] = useState(120);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // Debounce the slider so we don't fire on every drag step
+  useEffect(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setDebouncedWindow(windowSec), 500);
+    return () => clearTimeout(timerRef.current);
+  }, [windowSec]);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    relatedCalls(callId, callManagerId, windowSec)
+    relatedCalls(callId, callManagerId, debouncedWindow)
       .then((data) => {
         if (!cancelled) {
           setResults(data.results);
@@ -197,7 +206,7 @@ export function RelatedCalls({
     return () => {
       cancelled = true;
     };
-  }, [callId, callManagerId, windowSec]);
+  }, [callId, callManagerId, debouncedWindow]);
 
   const flow = useMemo(
     () => (results.length > 0 ? buildCallFlow(primaryCdr, results) : []),
