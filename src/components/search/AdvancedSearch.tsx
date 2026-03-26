@@ -24,8 +24,16 @@ export function AdvancedSearch({ onSearch, loading }: AdvancedSearchProps) {
   const [called, setCalled] = useState("");
   const [device, setDevice] = useState("");
   const [cause, setCause] = useState("");
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
+
+  // Default: last 15 minutes
+  const toLocalDatetime = (d: Date) => {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+  const now = new Date();
+  const fifteenAgo = new Date(now.getTime() - 15 * 60 * 1000);
+  const [start, setStart] = useState(toLocalDatetime(fifteenAgo));
+  const [end, setEnd] = useState(toLocalDatetime(now));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,7 +145,7 @@ export function AdvancedSearch({ onSearch, loading }: AdvancedSearchProps) {
             Clear
           </Button>
           <span className="text-xs text-muted-foreground ml-auto">
-            Leave time blank for last 24h
+            Clear times for last 24h
           </span>
         </div>
       </form>
