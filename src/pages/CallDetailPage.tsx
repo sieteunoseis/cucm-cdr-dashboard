@@ -5,6 +5,7 @@ import { EnrichmentCard } from "@/components/detail/EnrichmentCard";
 import { CallPath } from "@/components/detail/CallPath";
 import { QualityCard } from "@/components/detail/QualityCard";
 import { CollectLogs } from "@/components/detail/CollectLogs";
+import { SipLadder } from "@/components/detail/SipLadder";
 import { RelatedCalls } from "@/components/detail/RelatedCalls";
 import { RawCdr } from "@/components/detail/RawCdr";
 
@@ -54,6 +55,7 @@ export function CallDetailPage() {
         callManagerId={callManagerId}
         primaryCdr={primary}
       />
+      <SipLadder callId={callId!} callManagerId={callManagerId} />
       <CollectLogs
         callId={callId!}
         callManagerId={callManagerId}

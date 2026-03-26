@@ -44,6 +44,19 @@ export function executeSql(query: string) {
   }>("/api/v1/cdr/sql", { method: "POST", body: JSON.stringify({ query }) });
 }
 
+export function sipLadder(callId: string, callManagerId?: string) {
+  return apiFetch<{
+    messages: any[];
+    count: number;
+    callIds: string[];
+    files_searched: number;
+    timeWindow: { from: string; to: string };
+  }>("/api/v1/cdr/logs/sip-ladder", {
+    method: "POST",
+    body: JSON.stringify({ callId, callManagerId }),
+  });
+}
+
 export function collectLogs(callId: string, callManagerId?: string) {
   return apiFetch<{
     cluster: string;
