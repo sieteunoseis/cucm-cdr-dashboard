@@ -5,6 +5,7 @@ import { EnrichmentCard } from "@/components/detail/EnrichmentCard";
 import { CallPath } from "@/components/detail/CallPath";
 import { QualityCard } from "@/components/detail/QualityCard";
 import { CollectLogs } from "@/components/detail/CollectLogs";
+import { RelatedCalls } from "@/components/detail/RelatedCalls";
 import { RawCdr } from "@/components/detail/RawCdr";
 
 export function CallDetailPage() {
@@ -48,6 +49,7 @@ export function CallDetailPage() {
       <EnrichmentCard cdr={primary} />
       <CallPath legs={cdr} />
       <QualityCard cmr={cmr} />
+      <RelatedCalls callId={callId!} callManagerId={callManagerId} />
       <CollectLogs
         callId={callId!}
         callManagerId={callManagerId}

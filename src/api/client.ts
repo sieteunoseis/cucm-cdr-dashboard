@@ -57,6 +57,13 @@ export function collectLogs(callId: string, callManagerId?: string) {
   });
 }
 
+export function relatedCalls(callId: string, callManagerId?: string) {
+  const qs = callManagerId ? `?callmanager_id=${callManagerId}` : "";
+  return apiFetch<{ count: number; results: any[] }>(
+    `/api/v1/cdr/related/${callId}${qs}`,
+  );
+}
+
 export function healthCheck() {
   return apiFetch<any>("/api/v1/health");
 }
