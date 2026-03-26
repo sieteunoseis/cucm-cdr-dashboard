@@ -26,11 +26,34 @@ export function isRecordingLeg(result: CdrResult): boolean {
   );
 }
 
+// Transfer: lastredirectdn populated and redirect reason indicates transfer
+// On-behalf-of values: 5=transfer, 6=consult transfer
+export function isTransfer(result: CdrResult): boolean {
+  const obo = result.origcallterminationonbehalfof || 0;
+  const dObo = result.destcallterminationonbehalfof || 0;
+  const redirectReason = result.lastredirectredirectreason || 0;
+  return (
+    !!result.lastredirectdn ||
+    obo === 5 ||
+    obo === 6 ||
+    dObo === 5 ||
+    dObo === 6 ||
+    redirectReason === 15 // Call Deflection
+  );
+}
+
+// Conference: joinonbehalfof is non-zero (values: 5=conference, etc.)
+export function isConference(result: CdrResult): boolean {
+  return (result.joinonbehalfof || 0) !== 0;
+}
+
 export function ResultRow({ result }: ResultRowProps) {
   const navigate = useNavigate();
   const isConnected = result.datetimeconnect != null;
   const grade = mosToGrade(null);
   const isRecording = isRecordingLeg(result);
+  const transfer = !isRecording && isTransfer(result);
+  const conference = !isRecording && isConference(result);
 
   return (
     <div
@@ -55,6 +78,16 @@ export function ResultRow({ result }: ResultRowProps) {
               Recording
             </Badge>
           )}
+          {transfer && (
+            <Badge variant="secondary" className="text-xs ml-2">
+              Transfer
+            </Badge>
+          )}
+          {conference && (
+            <Badge variant="secondary" className="text-xs ml-2">
+              Conference
+            </Badge>
+          )}
         </div>
         <div className="mt-1 text-xs text-muted-foreground truncate">
           {result.originalcalledpartynumber &&
@@ -64,6 +97,11 @@ export function ResultRow({ result }: ResultRowProps) {
                 Dialed: {result.originalcalledpartynumber}
               </span>
             )}
+          {transfer && result.lastredirectdn && (
+            <span className="mr-3">
+              Redirected from: {result.lastredirectdn}
+            </span>
+          )}
           {result.orig_device_description || result.origdevicename}
           {" → "}
           {result.dest_device_description || result.destdevicename}
