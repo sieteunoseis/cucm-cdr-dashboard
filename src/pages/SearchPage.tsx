@@ -1,14 +1,25 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { SearchBar } from "@/components/search/SearchBar";
 import { TimeRange } from "@/components/search/TimeRange";
-import { ResultRow } from "@/components/search/ResultRow";
+import { ResultRow, isRecordingLeg } from "@/components/search/ResultRow";
 import { useSearch } from "@/hooks/useSearch";
 import { Button } from "@/components/ui/button";
 
 export function SearchPage() {
   const [timeRange, setTimeRange] = useState("24h");
   const [limit, setLimit] = useState(100);
+  const [hideRecording, setHideRecording] = useState(false);
   const { results, count, loading, error, search } = useSearch();
+
+  const filteredResults = useMemo(() => {
+    if (!hideRecording) return results;
+    return results.filter((r) => !isRecordingLeg(r));
+  }, [results, hideRecording]);
+
+  const recordingCount = useMemo(
+    () => results.filter((r) => isRecordingLeg(r)).length,
+    [results],
+  );
 
   const handleSearch = useCallback(
     (query: string) => {
@@ -34,11 +45,28 @@ export function SearchPage() {
       )}
       {results.length > 0 && (
         <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">
-            Showing {results.length} of {count} results
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Showing {filteredResults.length} of {count} results
+              {hideRecording && recordingCount > 0 && (
+                <span className="ml-1">
+                  ({recordingCount} recording legs hidden)
+                </span>
+              )}
+            </p>
+            {recordingCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setHideRecording(!hideRecording)}
+              >
+                {hideRecording ? "Show" : "Hide"} recording legs (
+                {recordingCount})
+              </Button>
+            )}
+          </div>
           <div className="space-y-2">
-            {results.map((r) => (
+            {filteredResults.map((r) => (
               <ResultRow key={r.pkid} result={r} />
             ))}
           </div>

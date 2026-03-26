@@ -12,10 +12,22 @@ interface ResultRowProps {
   result: CdrResult;
 }
 
+export function isRecordingLeg(result: CdrResult): boolean {
+  const calling = result.callingpartynumber || "";
+  const origDevice = result.origdevicename || "";
+  const destDevice = result.destdevicename || "";
+  return (
+    /^b\d{10,}/.test(calling) ||
+    /Inform|Record|BIB/i.test(origDevice) ||
+    /Inform|Record|BIB/i.test(destDevice)
+  );
+}
+
 export function ResultRow({ result }: ResultRowProps) {
   const navigate = useNavigate();
   const isConnected = result.datetimeconnect != null;
   const grade = mosToGrade(null);
+  const isRecording = isRecordingLeg(result);
 
   return (
     <div
@@ -24,7 +36,7 @@ export function ResultRow({ result }: ResultRowProps) {
           `/call/${result.globalcallid_callid}?cm=${result.globalcallid_callmanagerid}`,
         )
       }
-      className="flex items-center justify-between rounded-lg border border-border p-4 hover:bg-accent cursor-pointer transition-colors"
+      className={`flex items-center justify-between rounded-lg border border-border p-4 hover:bg-accent cursor-pointer transition-colors ${isRecording ? "opacity-60" : ""}`}
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 text-sm font-mono">
@@ -35,6 +47,11 @@ export function ResultRow({ result }: ResultRowProps) {
           <span className="font-medium">
             {result.finalcalledpartynumber || "N/A"}
           </span>
+          {isRecording && (
+            <Badge variant="outline" className="text-xs ml-2">
+              Recording
+            </Badge>
+          )}
         </div>
         <div className="mt-1 text-xs text-muted-foreground truncate">
           {result.originalcalledpartynumber &&
