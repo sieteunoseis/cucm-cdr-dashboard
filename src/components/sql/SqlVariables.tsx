@@ -54,7 +54,15 @@ export function SqlVariables({ query, onResolvedQuery }: SqlVariablesProps) {
             "g",
           )
         : new RegExp(`(?<!:):${v.name}\\b`, "g");
-      resolved = resolved.replace(pattern, val || `:${v.name}`);
+      if (!val) {
+        resolved = resolved.replace(pattern, `:${v.name}`);
+      } else {
+        // Wrap in quotes unless it's a pure number
+        const quoted = /^\d+(\.\d+)?$/.test(val)
+          ? val
+          : `'${val.replace(/'/g, "''")}'`;
+        resolved = resolved.replace(pattern, quoted);
+      }
     }
     onResolvedQuery(resolved);
   }, [query, values, onResolvedQuery]);

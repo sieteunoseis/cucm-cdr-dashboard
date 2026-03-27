@@ -51,6 +51,9 @@ export function SqlEditor({
             scrollBeyondLastLine: false,
             wordWrap: "on",
             padding: { top: 12 },
+            guides: { indentation: false, bracketPairs: false },
+            folding: false,
+            renderLineHighlight: "none",
           }}
         />
       </div>
