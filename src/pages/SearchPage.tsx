@@ -89,9 +89,11 @@ export function SearchPage() {
 
   // Load recent calls on mount (or re-run search when returning via back button)
   useEffect(() => {
-    const params = initialQuery
-      ? { number: initialQuery, last: initialTimeRange, limit: String(limit) }
-      : { last: timeRange, limit: String(limit) };
+    const params: Record<string, string> = {
+      last: initialQuery ? initialTimeRange : timeRange,
+      limit: String(limit),
+    };
+    if (initialQuery) params.number = initialQuery;
     lastSearchRef.current = params;
     search(params);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
