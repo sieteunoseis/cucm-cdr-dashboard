@@ -138,9 +138,53 @@ export function SearchPage() {
       {results.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              Showing {filteredResults.length} of {count} results
-            </p>
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-muted-foreground">
+                Showing {filteredResults.length} of {count} results
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-xs"
+                onClick={() => {
+                  const cols = [
+                    "callingpartynumber",
+                    "finalcalledpartynumber",
+                    "originalcalledpartynumber",
+                    "origdevicename",
+                    "destdevicename",
+                    "orig_device_description",
+                    "dest_device_description",
+                    "datetimeorigination",
+                    "datetimeconnect",
+                    "datetimedisconnect",
+                    "duration",
+                    "destcause_value",
+                    "destcause_description",
+                    "globalcallid_callid",
+                    "globalcallid_callmanagerid",
+                    "globalcallid_clusterid",
+                  ];
+                  const header = cols.join(",");
+                  const rows = filteredResults.map((r) =>
+                    cols
+                      .map((c) => `"${String(r[c] ?? "").replace(/"/g, '""')}"`)
+                      .join(","),
+                  );
+                  const blob = new Blob([`${header}\n${rows.join("\n")}`], {
+                    type: "text/csv",
+                  });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `cdr-export-${Date.now()}.csv`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                Export CSV
+              </Button>
+            </div>
             <div className="flex items-center gap-5 text-xs text-muted-foreground">
               <label className="flex items-center gap-1.5 cursor-pointer">
                 <Switch
