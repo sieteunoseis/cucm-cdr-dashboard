@@ -59,6 +59,7 @@ export function CallDetailPage() {
       <DeviceCard
         origDevice={primary.origdevicename || ""}
         destDevice={primary.destdevicename || ""}
+        clusterId={primary.globalcallid_clusterid}
       />
       <SipLadder callId={callId!} callManagerId={callManagerId} cdrLegs={cdr} />
       <CollectLogs

@@ -114,7 +114,8 @@ export function unstarCall(callId: string, callManagerId: string) {
 }
 
 // Device info
-export function getDeviceInfo(deviceName: string) {
+export function getDeviceInfo(deviceName: string, clusterId?: string) {
+  const qs = clusterId ? `?cluster=${encodeURIComponent(clusterId)}` : "";
   return apiFetch<{
     found: boolean;
     deviceName: string;
@@ -129,14 +130,19 @@ export function getDeviceInfo(deviceName: string) {
     description: string;
     webCapable: boolean;
     webPages: Record<string, string> | null;
-  }>(`/api/v1/device/${deviceName}`);
+  }>(`/api/v1/device/${deviceName}${qs}`);
 }
 
-export function getPhoneWebPage(deviceName: string, page: string) {
+export function getPhoneWebPage(
+  deviceName: string,
+  page: string,
+  clusterId?: string,
+) {
+  const qs = clusterId ? `?cluster=${encodeURIComponent(clusterId)}` : "";
   return apiFetch<{
     deviceName: string;
     ip: string;
     page: string;
     html: string;
-  }>(`/api/v1/device/${deviceName}/web/${page}`);
+  }>(`/api/v1/device/${deviceName}/web/${page}${qs}`);
 }

@@ -7,6 +7,7 @@ import { getDeviceInfo, getPhoneWebPage } from "@/api/client";
 interface DeviceCardProps {
   origDevice: string;
   destDevice: string;
+  clusterId?: string;
 }
 
 interface DeviceInfo {
@@ -40,7 +41,13 @@ function statusBadge(status: string) {
   );
 }
 
-function DevicePanel({ deviceName }: { deviceName: string }) {
+function DevicePanel({
+  deviceName,
+  clusterId,
+}: {
+  deviceName: string;
+  clusterId?: string;
+}) {
   const [info, setInfo] = useState<DeviceInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +64,7 @@ function DevicePanel({ deviceName }: { deviceName: string }) {
     setLoading(true);
     setError(null);
     try {
-      const data = await getDeviceInfo(deviceName);
+      const data = await getDeviceInfo(deviceName, clusterId);
       setInfo(data);
     } catch (err: any) {
       setError(err.message);
@@ -69,7 +76,7 @@ function DevicePanel({ deviceName }: { deviceName: string }) {
   const handleWebPage = async (page: string) => {
     setWebLoading(true);
     try {
-      const data = await getPhoneWebPage(deviceName, page);
+      const data = await getPhoneWebPage(deviceName, page, clusterId);
       setWebPage({ page, html: data.html });
     } catch (err: any) {
       setWebPage({ page, html: `Error: ${err.message}` });
@@ -223,7 +230,11 @@ function DevicePanel({ deviceName }: { deviceName: string }) {
   );
 }
 
-export function DeviceCard({ origDevice, destDevice }: DeviceCardProps) {
+export function DeviceCard({
+  origDevice,
+  destDevice,
+  clusterId,
+}: DeviceCardProps) {
   const hasOrig = /^SEP/i.test(origDevice);
   const hasDest = /^SEP/i.test(destDevice);
 
@@ -238,7 +249,7 @@ export function DeviceCard({ origDevice, destDevice }: DeviceCardProps) {
             <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">
               Originating
             </p>
-            <DevicePanel deviceName={origDevice} />
+            <DevicePanel deviceName={origDevice} clusterId={clusterId} />
           </div>
         )}
         {hasDest && (
@@ -246,7 +257,7 @@ export function DeviceCard({ origDevice, destDevice }: DeviceCardProps) {
             <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">
               Destination
             </p>
-            <DevicePanel deviceName={destDevice} />
+            <DevicePanel deviceName={destDevice} clusterId={clusterId} />
           </div>
         )}
       </div>
