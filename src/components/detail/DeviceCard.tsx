@@ -50,19 +50,25 @@ function DevicePanel({
   info: DeviceInfo | null;
   clusterId?: string;
 }) {
-  const [webPage, setWebPage] = useState<{
+  const [phoneData, setPhoneData] = useState<{
     page: string;
-    html: string;
+    data?: { key: string; val: string }[];
+    text?: string;
+    error?: string;
   } | null>(null);
   const [webLoading, setWebLoading] = useState(false);
 
-  const handleWebPage = async (page: string) => {
+  const handleFetchPage = async (page: string) => {
     setWebLoading(true);
     try {
-      const data = await getPhoneWebPage(deviceName, page, clusterId);
-      setWebPage({ page, html: data.html });
+      const result = await getPhoneWebPage(deviceName, page, clusterId);
+      setPhoneData({
+        page,
+        data: result.data,
+        text: result.text,
+      });
     } catch (err: any) {
-      setWebPage({ page, html: `Error: ${err.message}` });
+      setPhoneData({ page, error: err.message });
     } finally {
       setWebLoading(false);
     }
@@ -123,45 +129,27 @@ function DevicePanel({
           {info.webCapable && info.ip && (
             <div className="space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-muted-foreground">
-                  Phone Web:
-                </span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-6 text-xs"
-                  onClick={() => handleWebPage("network")}
-                  disabled={webLoading}
-                >
-                  Network/CDP
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-6 text-xs"
-                  onClick={() => handleWebPage("console")}
-                  disabled={webLoading}
-                >
-                  Console Log
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-6 text-xs"
-                  onClick={() => handleWebPage("status")}
-                  disabled={webLoading}
-                >
-                  Status
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-6 text-xs"
-                  onClick={() => handleWebPage("config")}
-                  disabled={webLoading}
-                >
-                  Config
-                </Button>
+                <span className="text-xs text-muted-foreground">Fetch:</span>
+                {["network", "config", "status", "messages", "messages.0"].map(
+                  (p) => (
+                    <Button
+                      key={p}
+                      size="sm"
+                      variant="outline"
+                      className="h-6 text-xs"
+                      onClick={() => handleFetchPage(p)}
+                      disabled={webLoading}
+                    >
+                      {p === "network"
+                        ? "Network/CDP"
+                        : p === "messages"
+                          ? "Syslog"
+                          : p === "messages.0"
+                            ? "Syslog.0"
+                            : p.charAt(0).toUpperCase() + p.slice(1)}
+                    </Button>
+                  ),
+                )}
                 <a
                   href={`http://${info.ip}`}
                   target="_blank"
@@ -179,23 +167,49 @@ function DevicePanel({
                 </div>
               )}
 
-              {webPage && (
-                <div className="rounded border border-border overflow-auto max-h-80">
-                  <div className="flex items-center justify-between px-3 py-1.5 bg-muted text-xs text-muted-foreground border-b border-border">
-                    <span>{webPage.page}</span>
+              {phoneData && (
+                <div className="rounded border border-border overflow-auto max-h-96">
+                  <div className="flex items-center justify-between px-3 py-1.5 bg-muted text-xs text-muted-foreground border-b border-border sticky top-0">
+                    <span>{phoneData.page}</span>
                     <button
-                      onClick={() => setWebPage(null)}
+                      onClick={() => setPhoneData(null)}
                       className="hover:text-foreground"
                     >
                       Close
                     </button>
                   </div>
-                  <iframe
-                    srcDoc={webPage.html}
-                    className="w-full h-64 bg-white"
-                    sandbox=""
-                    title={`${deviceName} ${webPage.page}`}
-                  />
+
+                  {phoneData.error && (
+                    <p className="p-3 text-sm text-destructive">
+                      {phoneData.error}
+                    </p>
+                  )}
+
+                  {phoneData.data && (
+                    <table className="w-full text-xs">
+                      <tbody>
+                        {phoneData.data.map(
+                          (row: { key: string; val: string }, i: number) => (
+                            <tr
+                              key={i}
+                              className="border-b border-border last:border-0"
+                            >
+                              <td className="px-3 py-1 text-muted-foreground font-medium whitespace-nowrap">
+                                {row.key}
+                              </td>
+                              <td className="px-3 py-1 font-mono">{row.val}</td>
+                            </tr>
+                          ),
+                        )}
+                      </tbody>
+                    </table>
+                  )}
+
+                  {phoneData.text && (
+                    <pre className="p-3 text-xs font-mono whitespace-pre-wrap">
+                      {phoneData.text}
+                    </pre>
+                  )}
                 </div>
               )}
             </div>

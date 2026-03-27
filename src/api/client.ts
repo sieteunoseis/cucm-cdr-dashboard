@@ -156,6 +156,7 @@ export function getPhoneWebPage(
     deviceName: string;
     ip: string;
     page: string;
-    html: string;
+    data?: { key: string; val: string }[];
+    text?: string;
   }>(`/api/v1/device/${deviceName}/web/${page}${qs}`);
 }
