@@ -49,13 +49,13 @@ export function CallDetailPage() {
       <CallHeader cdr={primary} />
       <EnrichmentCard cdr={primary} />
       <CallPath legs={cdr} />
-      <QualityCard cmr={cmr} />
+      <QualityCard cmr={cmr} codec={primary.orig_codec_description} />
       <RelatedCalls
         callId={callId!}
         callManagerId={callManagerId}
         primaryCdr={primary}
       />
-      <SipLadder callId={callId!} callManagerId={callManagerId} />
+      <SipLadder callId={callId!} callManagerId={callManagerId} cdrLegs={cdr} />
       <CollectLogs
         callId={callId!}
         callManagerId={callManagerId}

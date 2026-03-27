@@ -1,6 +1,30 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 
+function formatInterval(obj: any): string {
+  if (
+    obj.years ||
+    obj.months ||
+    obj.days ||
+    obj.hours ||
+    obj.minutes != null ||
+    obj.seconds != null
+  ) {
+    const h = String(obj.hours || 0).padStart(2, "0");
+    const m = String(obj.minutes || 0).padStart(2, "0");
+    const s = String(obj.seconds || 0).padStart(2, "0");
+    if (obj.days) return `${obj.days}d ${h}:${m}:${s}`;
+    return `${h}:${m}:${s}`;
+  }
+  return JSON.stringify(obj);
+}
+
+function formatValue(val: any): string {
+  if (val == null) return "";
+  if (typeof val === "object") return formatInterval(val);
+  return String(val);
+}
+
 interface SqlResultsProps {
   columns: string[];
   rows: any[];
@@ -24,9 +48,9 @@ export function SqlResults({
     return [...rows].sort((a, b) => {
       const av = a[sortCol] ?? "";
       const bv = b[sortCol] ?? "";
-      const cmp = String(av).localeCompare(String(bv), undefined, {
-        numeric: true,
-      });
+      const sa = formatValue(av);
+      const sb = formatValue(bv);
+      const cmp = sa.localeCompare(sb, undefined, { numeric: true });
       return sortAsc ? cmp : -cmp;
     });
   }, [rows, sortCol, sortAsc]);
@@ -45,7 +69,9 @@ export function SqlResults({
     const body = rows
       .map((r) =>
         columns
-          .map((c) => `"${String(r[c] ?? "").replace(/"/g, '""')}"`)
+          .map((c) => {
+            return `"${formatValue(r[c]).replace(/"/g, '""')}"`;
+          })
           .join(","),
       )
       .join("\n");
@@ -67,6 +93,12 @@ export function SqlResults({
   }
   if (columns.length === 0) return null;
 
+  if (rows.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">0 rows in {durationMs}ms</p>
+    );
+  }
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
@@ -77,37 +109,47 @@ export function SqlResults({
           Export CSV
         </Button>
       </div>
-      <div className="rounded-lg border border-border overflow-auto max-h-[500px]">
-        <table className="w-full text-sm">
-          <thead className="bg-muted sticky top-0">
-            <tr>
-              {columns.map((col) => (
-                <th
-                  key={col}
-                  className="px-3 py-2 text-left font-medium cursor-pointer hover:bg-accent whitespace-nowrap"
-                  onClick={() => handleSort(col)}
-                >
-                  {col}
-                  {sortCol === col && (sortAsc ? " ↑" : " ↓")}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map((row, i) => (
-              <tr key={i} className="border-t border-border hover:bg-accent/50">
+      <div className="rounded-lg border border-border overflow-hidden max-w-full">
+        <div className="overflow-auto max-h-[500px]">
+          <table className="text-sm w-full">
+            <thead className="bg-muted sticky top-0 z-10">
+              <tr>
                 {columns.map((col) => (
-                  <td
+                  <th
                     key={col}
-                    className="px-3 py-1.5 font-mono text-xs whitespace-nowrap"
+                    className="px-3 py-2 text-left font-medium cursor-pointer hover:bg-accent whitespace-nowrap"
+                    onClick={() => handleSort(col)}
                   >
-                    {row[col] != null ? String(row[col]) : ""}
-                  </td>
+                    {col}
+                    {sortCol === col && (sortAsc ? " ↑" : " ↓")}
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {sorted.map((row, i) => (
+                <tr
+                  key={i}
+                  className="border-t border-border hover:bg-accent/50"
+                >
+                  {columns.map((col) => {
+                    const val = row[col];
+                    const display = formatValue(val);
+                    return (
+                      <td
+                        key={col}
+                        className="px-3 py-1.5 font-mono text-xs whitespace-nowrap max-w-xs truncate"
+                        title={display}
+                      >
+                        {display}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

@@ -1,18 +1,25 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { SqlEditor } from "@/components/sql/SqlEditor";
 import { SqlResults } from "@/components/sql/SqlResults";
+import { SqlVariables } from "@/components/sql/SqlVariables";
 import { SavedQueries } from "@/components/sql/SavedQueries";
 import { useSqlQuery } from "@/hooks/useSqlQuery";
 import { useSavedQueries } from "@/hooks/useSavedQueries";
 
 export function SqlPage() {
   const [query, setQuery] = useState("");
+  const resolvedRef = useRef(query);
   const { columns, rows, count, durationMs, loading, error, execute } =
     useSqlQuery();
-  const { queries, save, remove } = useSavedQueries();
+  const { queries, save, remove, reset } = useSavedQueries();
+
+  const handleResolvedQuery = useCallback((resolved: string) => {
+    resolvedRef.current = resolved;
+  }, []);
 
   const handleRun = useCallback(() => {
-    if (query.trim()) execute(query);
+    const q = resolvedRef.current || query;
+    if (q.trim()) execute(q);
   }, [query, execute]);
 
   const handleSave = useCallback(() => {
@@ -23,9 +30,14 @@ export function SqlPage() {
   return (
     <div className="flex gap-6">
       <div className="w-56 shrink-0">
-        <SavedQueries queries={queries} onSelect={setQuery} onDelete={remove} />
+        <SavedQueries
+          queries={queries}
+          onSelect={setQuery}
+          onDelete={remove}
+          onReset={reset}
+        />
       </div>
-      <div className="flex-1 space-y-4">
+      <div className="flex-1 min-w-0 space-y-4">
         <SqlEditor
           value={query}
           onChange={setQuery}
@@ -33,6 +45,7 @@ export function SqlPage() {
           onSave={handleSave}
           loading={loading}
         />
+        <SqlVariables query={query} onResolvedQuery={handleResolvedQuery} />
         <SqlResults
           columns={columns}
           rows={rows}

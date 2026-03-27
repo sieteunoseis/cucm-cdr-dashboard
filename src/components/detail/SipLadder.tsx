@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { sipLadder } from "@/api/client";
 
 interface SipLadderProps {
   callId: string;
   callManagerId?: string;
+  cdrLegs?: any[];
 }
 
 interface SipMessage {
@@ -28,48 +28,102 @@ interface SipMessage {
   raw: string;
 }
 
-function methodColor(method: string): string {
-  switch (method) {
-    case "INVITE":
-      return "bg-green-500/15 text-green-400 border-green-500/25";
-    case "BYE":
-      return "bg-red-500/15 text-red-400 border-red-500/25";
-    case "CANCEL":
-      return "bg-orange-500/15 text-orange-400 border-orange-500/25";
-    case "ACK":
-      return "bg-blue-500/15 text-blue-400 border-blue-500/25";
-    case "REFER":
-      return "bg-purple-500/15 text-purple-400 border-purple-500/25";
-    case "UPDATE":
-      return "bg-yellow-500/15 text-yellow-400 border-yellow-500/25";
-    default:
-      return "bg-muted text-muted-foreground";
-  }
-}
-
-function statusColor(code: number): string {
-  if (code >= 100 && code < 200) return "text-blue-400";
-  if (code >= 200 && code < 300) return "text-green-400";
-  if (code >= 300 && code < 400) return "text-yellow-400";
-  if (code >= 400) return "text-red-400";
-  return "text-muted-foreground";
-}
-
 function formatTime(ts: string): string {
   const match = ts.match(/(\d{2}:\d{2}:\d{2}\.\d{3})/);
   return match ? match[1] : ts;
 }
 
-export function SipLadder({ callId, callManagerId }: SipLadderProps) {
-  const [messages, setMessages] = useState<SipMessage[]>([]);
+function messageColor(msg: SipMessage): string {
+  if (msg.type === "response") {
+    if (!msg.statusCode) return "text-muted-foreground";
+    if (msg.statusCode >= 200 && msg.statusCode < 300) return "text-green-400";
+    if (msg.statusCode >= 100 && msg.statusCode < 200) return "text-blue-400";
+    if (msg.statusCode >= 300 && msg.statusCode < 400) return "text-yellow-400";
+    if (msg.statusCode >= 400) return "text-red-400";
+    return "text-muted-foreground";
+  }
+  switch (msg.method) {
+    case "INVITE":
+      return "text-green-400";
+    case "BYE":
+      return "text-red-400";
+    case "CANCEL":
+      return "text-orange-400";
+    case "ACK":
+      return "text-blue-400";
+    case "REFER":
+      return "text-purple-400";
+    case "UPDATE":
+      return "text-yellow-400";
+    default:
+      return "text-muted-foreground";
+  }
+}
+
+function messageLabel(msg: SipMessage): string {
+  if (msg.type === "request") return msg.method || "";
+  return msg.summary || `${msg.statusCode}`;
+}
+
+function cacheKey(callId: string, callManagerId?: string): string {
+  return `sip-ladder:${callId}:${callManagerId || ""}`;
+}
+
+function reverseIp(ip: string): string {
+  return ip.split(".").reverse().join(".");
+}
+
+function buildIpLabels(cdrLegs: any[]): Map<string, string> {
+  const map = new Map<string, string>();
+  function add(ip: string, label: string) {
+    // CDR stores IPs in reversed byte order, so map both forms
+    if (!map.has(ip)) map.set(ip, label);
+    const rev = reverseIp(ip);
+    if (!map.has(rev)) map.set(rev, label);
+  }
+  for (const leg of cdrLegs) {
+    if (leg.origipaddr) {
+      add(
+        leg.origipaddr,
+        leg.orig_device_description || leg.origdevicename || leg.origipaddr,
+      );
+    }
+    if (leg.destipaddr) {
+      add(
+        leg.destipaddr,
+        leg.dest_device_description || leg.destdevicename || leg.destipaddr,
+      );
+    }
+  }
+  return map;
+}
+
+export function SipLadder({
+  callId,
+  callManagerId,
+  cdrLegs = [],
+}: SipLadderProps) {
+  // Restore from sessionStorage on mount
+  const cached = (() => {
+    try {
+      const raw = sessionStorage.getItem(cacheKey(callId, callManagerId));
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  const [messages, setMessages] = useState<SipMessage[]>(
+    cached?.messages || [],
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
-  const [fetched, setFetched] = useState(false);
+  const [fetched, setFetched] = useState(!!cached);
   const [meta, setMeta] = useState<{
     count: number;
     files_searched: number;
-  } | null>(null);
+  } | null>(cached?.meta || null);
 
   const handleFetch = async () => {
     setLoading(true);
@@ -77,8 +131,20 @@ export function SipLadder({ callId, callManagerId }: SipLadderProps) {
     try {
       const data = await sipLadder(callId, callManagerId);
       setMessages(data.messages);
-      setMeta({ count: data.count, files_searched: data.files_searched });
+      const newMeta = {
+        count: data.count,
+        files_searched: data.files_searched,
+      };
+      setMeta(newMeta);
       setFetched(true);
+      try {
+        sessionStorage.setItem(
+          cacheKey(callId, callManagerId),
+          JSON.stringify({ messages: data.messages, meta: newMeta }),
+        );
+      } catch {
+        // sessionStorage full or unavailable — ignore
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -86,13 +152,19 @@ export function SipLadder({ callId, callManagerId }: SipLadderProps) {
     }
   };
 
-  // Filter out REGISTER messages — they're noise
   const filtered = messages.filter(
     (m) => m.method !== "REGISTER" && !(m.cseq && m.cseq.includes("REGISTER")),
   );
 
-  // Get unique endpoints (IPs) for the ladder columns
-  const endpoints = [...new Set(filtered.map((m) => m.remoteIp))];
+  const remoteIps = [...new Set(filtered.map((m) => m.remoteIp))];
+  const ipLabels = buildIpLabels(cdrLegs);
+  const columns = ["CUCM", ...remoteIps];
+  const columnLabels = columns.map((col, i) => {
+    if (i === 0) return col;
+    const label = ipLabels.get(col);
+    return label && label !== col ? `${label}\n${col}` : col;
+  });
+  const colWidth = 100 / columns.length;
 
   return (
     <Card className="p-6">
@@ -126,62 +198,169 @@ export function SipLadder({ callId, callManagerId }: SipLadderProps) {
       )}
 
       {filtered.length > 0 && (
-        <div className="space-y-1">
-          <p className="text-xs text-muted-foreground mb-3">
+        <div className="overflow-x-auto">
+          <p className="text-xs text-muted-foreground mb-4">
             {filtered.length} SIP messages from {meta?.files_searched} trace
             files
-            {endpoints.length > 0 && ` • ${endpoints.length} endpoints`}
+            {columns.length > 0 && ` \u2022 ${columns.length} endpoints`}
           </p>
 
-          {filtered.map((msg, i) => {
-            const isExpanded = expanded === i;
-            const arrow = msg.direction === "incoming" ? "←" : "→";
-
-            return (
-              <div key={i}>
-                <div
-                  onClick={() => setExpanded(isExpanded ? null : i)}
-                  className="flex items-center gap-3 rounded px-3 py-1.5 hover:bg-accent cursor-pointer transition-colors font-mono text-xs"
-                >
-                  <span className="text-muted-foreground w-24 shrink-0">
-                    {formatTime(msg.timestamp)}
-                  </span>
-
-                  <span className="w-6 text-center text-muted-foreground">
-                    {arrow}
-                  </span>
-
-                  <span className="w-28 shrink-0 text-muted-foreground">
-                    {msg.remoteIp}
-                  </span>
-
-                  {msg.type === "request" ? (
-                    <Badge className={`text-xs ${methodColor(msg.method!)}`}>
-                      {msg.method}
-                    </Badge>
-                  ) : (
-                    <span
-                      className={`font-medium ${statusColor(msg.statusCode!)}`}
-                    >
-                      {msg.summary}
-                    </span>
-                  )}
-
-                  <span className="text-muted-foreground ml-auto truncate">
-                    {msg.fromNumber && msg.toNumber
-                      ? `${msg.fromNumber} → ${msg.toNumber}`
-                      : msg.cseq || ""}
-                  </span>
-                </div>
-
-                {isExpanded && (
-                  <pre className="mx-3 my-1 p-3 rounded bg-muted text-xs overflow-x-auto max-h-96 whitespace-pre-wrap">
-                    {msg.raw}
-                  </pre>
-                )}
+          <div style={{ minWidth: `${Math.max(600, columns.length * 180)}px` }}>
+            {/* Column headers */}
+            <div className="flex text-xs mb-1">
+              <div className="w-28 shrink-0" />
+              <div className="flex-1 flex">
+                {columnLabels.map((label, i) => (
+                  <div
+                    key={i}
+                    className="flex-1 text-center text-muted-foreground px-1 font-medium whitespace-pre-line leading-tight"
+                  >
+                    {label.split("\n").map((line, j) => (
+                      <div
+                        key={j}
+                        className={
+                          j === 0
+                            ? "font-semibold text-foreground/80 truncate"
+                            : "font-mono text-[10px] text-muted-foreground/60 truncate"
+                        }
+                      >
+                        {line}
+                      </div>
+                    ))}
+                  </div>
+                ))}
               </div>
-            );
-          })}
+            </div>
+
+            {/* Header separator dots on vertical lines */}
+            <div className="flex">
+              <div className="w-28 shrink-0" />
+              <div className="flex-1 relative" style={{ height: "8px" }}>
+                {columns.map((_, ci) => (
+                  <div
+                    key={ci}
+                    className="absolute top-0 bottom-0 border-l-2 border-muted-foreground/30"
+                    style={{
+                      left: `${ci * colWidth + colWidth / 2}%`,
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Message rows */}
+            {filtered.map((msg, i) => {
+              const isExpanded = expanded === i;
+              const remoteIdx = remoteIps.indexOf(msg.remoteIp) + 1;
+              const srcIdx = msg.direction === "outgoing" ? 0 : remoteIdx;
+              const dstIdx = msg.direction === "outgoing" ? remoteIdx : 0;
+              const leftIdx = Math.min(srcIdx, dstIdx);
+              const rightIdx = Math.max(srcIdx, dstIdx);
+              const goingRight = dstIdx > srcIdx;
+              const color = messageColor(msg);
+              const label = messageLabel(msg);
+
+              const leftPct = leftIdx * colWidth + colWidth / 2;
+              const rightPct = rightIdx * colWidth + colWidth / 2;
+              const widthPct = rightPct - leftPct;
+
+              return (
+                <div key={i}>
+                  <div
+                    onClick={() => setExpanded(isExpanded ? null : i)}
+                    className="flex cursor-pointer hover:bg-accent/50 transition-colors rounded"
+                    style={{ height: "36px" }}
+                  >
+                    {/* Timestamp */}
+                    <div className="w-28 shrink-0 flex items-center font-mono text-xs text-muted-foreground pl-2">
+                      {formatTime(msg.timestamp)}
+                    </div>
+
+                    {/* Ladder area */}
+                    <div className="flex-1 relative">
+                      {/* Vertical lines */}
+                      {columns.map((_, ci) => (
+                        <div
+                          key={ci}
+                          className="absolute top-0 bottom-0 border-l border-dashed border-muted-foreground/20"
+                          style={{
+                            left: `${ci * colWidth + colWidth / 2}%`,
+                          }}
+                        />
+                      ))}
+
+                      {/* Arrow container */}
+                      <div
+                        className={`absolute top-1/2 ${color}`}
+                        style={{
+                          left: `${leftPct}%`,
+                          width: `${widthPct}%`,
+                        }}
+                      >
+                        {/* Arrow line */}
+                        <div className="absolute top-0 left-0 right-0 h-px bg-current" />
+
+                        {/* Label centered above the line */}
+                        <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 text-[11px] font-mono whitespace-nowrap font-medium">
+                          {label}
+                        </span>
+
+                        {/* Arrowhead */}
+                        {goingRight ? (
+                          <div
+                            className="absolute right-0"
+                            style={{
+                              top: "-4px",
+                              width: 0,
+                              height: 0,
+                              borderTop: "4px solid transparent",
+                              borderBottom: "4px solid transparent",
+                              borderLeft: "7px solid currentColor",
+                            }}
+                          />
+                        ) : (
+                          <div
+                            className="absolute left-0"
+                            style={{
+                              top: "-4px",
+                              width: 0,
+                              height: 0,
+                              borderTop: "4px solid transparent",
+                              borderBottom: "4px solid transparent",
+                              borderRight: "7px solid currentColor",
+                            }}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Expanded raw SIP message */}
+                  {isExpanded && (
+                    <pre className="ml-28 mr-4 my-1 p-3 rounded bg-muted text-xs overflow-x-auto max-h-96 whitespace-pre-wrap">
+                      {msg.raw}
+                    </pre>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Bottom cap for vertical lines */}
+            <div className="flex">
+              <div className="w-28 shrink-0" />
+              <div className="flex-1 relative" style={{ height: "8px" }}>
+                {columns.map((_, ci) => (
+                  <div
+                    key={ci}
+                    className="absolute top-0 bottom-0 border-l-2 border-muted-foreground/30"
+                    style={{
+                      left: `${ci * colWidth + colWidth / 2}%`,
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </Card>

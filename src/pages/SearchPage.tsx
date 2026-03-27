@@ -6,9 +6,15 @@ import {
   AdvancedSearch,
   type AdvancedSearchParams,
 } from "@/components/search/AdvancedSearch";
-import { ResultRow, isRecordingLeg } from "@/components/search/ResultRow";
+import {
+  ResultRow,
+  isRecordingLeg,
+  isTransfer,
+  isConference,
+} from "@/components/search/ResultRow";
 import { useSearch } from "@/hooks/useSearch";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 
 const REFRESH_INTERVAL = 30000;
 
@@ -19,20 +25,45 @@ export function SearchPage() {
 
   const [timeRange, setTimeRange] = useState(initialTimeRange);
   const [limit, setLimit] = useState(100);
-  const [hideRecording, setHideRecording] = useState(false);
+  const [hideRecording, setHideRecording] = useState(true);
+  const [hideZeroDuration, setHideZeroDuration] = useState(false);
+  const [hideTransfer, setHideTransfer] = useState(false);
+  const [hideConference, setHideConference] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const lastSearchRef = useRef<Record<string, string> | null>(null);
   const { results, count, loading, error, search } = useSearch();
 
-  const filteredResults = useMemo(() => {
-    if (!hideRecording) return results;
-    return results.filter((r) => !isRecordingLeg(r));
-  }, [results, hideRecording]);
-
-  const recordingCount = useMemo(
-    () => results.filter((r) => isRecordingLeg(r)).length,
-    [results],
-  );
+  const { filteredResults, hiddenCounts } = useMemo(() => {
+    let filtered = results;
+    const counts = {
+      recording: 0,
+      zeroDuration: 0,
+      transfer: 0,
+      conference: 0,
+    };
+    for (const r of results) {
+      if (isRecordingLeg(r)) counts.recording++;
+      if (
+        r.duration === "00:00:00" ||
+        r.duration === "0" ||
+        Number(r.duration) === 0
+      )
+        counts.zeroDuration++;
+      if (isTransfer(r)) counts.transfer++;
+      if (isConference(r)) counts.conference++;
+    }
+    if (hideRecording) filtered = filtered.filter((r) => !isRecordingLeg(r));
+    if (hideZeroDuration)
+      filtered = filtered.filter(
+        (r) =>
+          r.duration !== "00:00:00" &&
+          r.duration !== "0" &&
+          Number(r.duration) !== 0,
+      );
+    if (hideTransfer) filtered = filtered.filter((r) => !isTransfer(r));
+    if (hideConference) filtered = filtered.filter((r) => !isConference(r));
+    return { filteredResults: filtered, hiddenCounts: counts };
+  }, [results, hideRecording, hideZeroDuration, hideTransfer, hideConference]);
 
   const handleSearch = useCallback(
     (query: string) => {
@@ -56,17 +87,13 @@ export function SearchPage() {
     [search],
   );
 
-  // Re-run search when returning via back button
+  // Load recent calls on mount (or re-run search when returning via back button)
   useEffect(() => {
-    if (initialQuery && results.length === 0 && !loading) {
-      const params = {
-        number: initialQuery,
-        last: initialTimeRange,
-        limit: String(limit),
-      };
-      lastSearchRef.current = params;
-      search(params);
-    }
+    const params = initialQuery
+      ? { number: initialQuery, last: initialTimeRange, limit: String(limit) }
+      : { last: timeRange, limit: String(limit) };
+    lastSearchRef.current = params;
+    search(params);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-refresh
@@ -111,22 +138,37 @@ export function SearchPage() {
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
               Showing {filteredResults.length} of {count} results
-              {hideRecording && recordingCount > 0 && (
-                <span className="ml-1">
-                  ({recordingCount} recording legs hidden)
-                </span>
-              )}
             </p>
-            {recordingCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setHideRecording(!hideRecording)}
-              >
-                {hideRecording ? "Show" : "Hide"} recording legs (
-                {recordingCount})
-              </Button>
-            )}
+            <div className="flex items-center gap-5 text-xs text-muted-foreground">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <Switch
+                  checked={hideRecording}
+                  onCheckedChange={setHideRecording}
+                />
+                Hide recording ({hiddenCounts.recording})
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <Switch
+                  checked={hideZeroDuration}
+                  onCheckedChange={setHideZeroDuration}
+                />
+                Hide 0s calls ({hiddenCounts.zeroDuration})
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <Switch
+                  checked={hideTransfer}
+                  onCheckedChange={setHideTransfer}
+                />
+                Hide transfers ({hiddenCounts.transfer})
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <Switch
+                  checked={hideConference}
+                  onCheckedChange={setHideConference}
+                />
+                Hide conferences ({hiddenCounts.conference})
+              </label>
+            </div>
           </div>
           <div className="space-y-2">
             {filteredResults.map((r) => (
@@ -144,9 +186,9 @@ export function SearchPage() {
           )}
         </div>
       )}
-      {!loading && results.length === 0 && count === 0 && !initialQuery && (
+      {!loading && results.length === 0 && count === 0 && (
         <div className="text-center py-12 text-muted-foreground">
-          Search for a phone number, device name, or user ID to get started.
+          No calls found in the selected time range.
         </div>
       )}
     </div>

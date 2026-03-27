@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -19,21 +20,61 @@ interface AdvancedSearchProps {
 }
 
 export function AdvancedSearch({ onSearch, loading }: AdvancedSearchProps) {
-  const [open, setOpen] = useState(false);
-  const [calling, setCalling] = useState("");
-  const [called, setCalled] = useState("");
-  const [device, setDevice] = useState("");
-  const [cause, setCause] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [open, setOpen] = useState(() => {
+    // Auto-open if URL has advanced params
+    return !!(
+      searchParams.get("calling") ||
+      searchParams.get("called") ||
+      searchParams.get("device") ||
+      searchParams.get("cause") ||
+      searchParams.get("start") ||
+      searchParams.get("end")
+    );
+  });
+  const [calling, setCalling] = useState(searchParams.get("calling") || "");
+  const [called, setCalled] = useState(searchParams.get("called") || "");
+  const [device, setDevice] = useState(searchParams.get("device") || "");
+  const [cause, setCause] = useState(searchParams.get("cause") || "");
+  const [copied, setCopied] = useState(false);
 
-  // Default: last 15 minutes
   const toLocalDatetime = (d: Date) => {
     const pad = (n: number) => String(n).padStart(2, "0");
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
-  const now = new Date();
-  const fifteenAgo = new Date(now.getTime() - 15 * 60 * 1000);
-  const [start, setStart] = useState(toLocalDatetime(fifteenAgo));
-  const [end, setEnd] = useState(toLocalDatetime(now));
+
+  const [start, setStart] = useState(() => {
+    const sp = searchParams.get("start");
+    if (sp) return toLocalDatetime(new Date(sp));
+    return toLocalDatetime(new Date(Date.now() - 15 * 60 * 1000));
+  });
+  const [end, setEnd] = useState(() => {
+    const sp = searchParams.get("end");
+    if (sp) return toLocalDatetime(new Date(sp));
+    return toLocalDatetime(new Date());
+  });
+
+  // Auto-search on mount if URL has advanced params
+  useEffect(() => {
+    if (
+      open &&
+      (searchParams.get("calling") ||
+        searchParams.get("called") ||
+        searchParams.get("device") ||
+        searchParams.get("start"))
+    ) {
+      const params: AdvancedSearchParams = {};
+      if (calling.trim()) params.calling = calling.trim();
+      if (called.trim()) params.called = called.trim();
+      if (device.trim()) params.device = device.trim();
+      if (cause.trim()) params.cause = cause.trim();
+      if (start) params.start = new Date(start).toISOString();
+      if (end) params.end = new Date(end).toISOString();
+      if (!start && !end) params.last = "24h";
+      params.limit = "200";
+      onSearch(params);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +87,24 @@ export function AdvancedSearch({ onSearch, loading }: AdvancedSearchProps) {
     if (end) params.end = new Date(end).toISOString();
     if (!start && !end) params.last = "24h";
     params.limit = "200";
+
+    // Sync to URL for sharing
+    const urlParams: Record<string, string> = {};
+    if (calling.trim()) urlParams.calling = calling.trim();
+    if (called.trim()) urlParams.called = called.trim();
+    if (device.trim()) urlParams.device = device.trim();
+    if (cause.trim()) urlParams.cause = cause.trim();
+    if (start) urlParams.start = new Date(start).toISOString();
+    if (end) urlParams.end = new Date(end).toISOString();
+    setSearchParams(urlParams, { replace: true });
+
     onSearch(params);
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleClear = () => {
@@ -143,6 +201,14 @@ export function AdvancedSearch({ onSearch, loading }: AdvancedSearchProps) {
           </Button>
           <Button type="button" variant="outline" onClick={handleClear}>
             Clear
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleCopyLink}
+          >
+            {copied ? "Link Copied!" : "Copy Link"}
           </Button>
           <span className="text-xs text-muted-foreground ml-auto">
             Clear times for last 24h

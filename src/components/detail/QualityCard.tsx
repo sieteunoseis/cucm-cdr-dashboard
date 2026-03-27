@@ -3,36 +3,43 @@ import { mosToGrade, gradeColor } from "@/lib/quality";
 
 interface QualityCardProps {
   cmr: any[];
+  codec?: string | null;
 }
 
-export function QualityCard({ cmr }: QualityCardProps) {
-  if (cmr.length === 0) return null;
+export function QualityCard({ cmr, codec }: QualityCardProps) {
+  if (cmr.length === 0 && !codec) return null;
   const withMos = cmr.find((c) => c.moslqk != null) || cmr[0];
-  const grade = mosToGrade(withMos.moslqk);
+  const grade = withMos ? mosToGrade(withMos.moslqk) : null;
 
   return (
     <Card className="p-6">
       <h3 className="text-lg font-semibold mb-4">Quality</h3>
-      <div className="grid grid-cols-4 gap-6">
+      <div className="grid grid-cols-5 gap-6">
         <div className="text-center">
-          <p className={`text-4xl font-bold ${gradeColor(grade)}`}>
-            {withMos.moslqk != null ? Number(withMos.moslqk).toFixed(1) : "N/A"}
+          <p className={`text-4xl font-bold ${grade ? gradeColor(grade) : ""}`}>
+            {withMos?.moslqk != null
+              ? Number(withMos.moslqk).toFixed(1)
+              : "N/A"}
           </p>
           <p className="text-xs text-muted-foreground mt-1">MOS Score</p>
         </div>
         <div className="text-center">
-          <p className="text-2xl font-semibold">{withMos.jitter ?? "N/A"}</p>
+          <p className="text-2xl font-semibold">{withMos?.jitter ?? "N/A"}</p>
           <p className="text-xs text-muted-foreground mt-1">Jitter (ms)</p>
         </div>
         <div className="text-center">
-          <p className="text-2xl font-semibold">{withMos.latency ?? "N/A"}</p>
+          <p className="text-2xl font-semibold">{withMos?.latency ?? "N/A"}</p>
           <p className="text-xs text-muted-foreground mt-1">Latency (ms)</p>
         </div>
         <div className="text-center">
           <p className="text-2xl font-semibold">
-            {withMos.numberpacketslost ?? "N/A"}
+            {withMos?.numberpacketslost ?? "N/A"}
           </p>
           <p className="text-xs text-muted-foreground mt-1">Packets Lost</p>
+        </div>
+        <div className="text-center">
+          <p className="text-2xl font-semibold truncate">{codec || "N/A"}</p>
+          <p className="text-xs text-muted-foreground mt-1">Codec</p>
         </div>
       </div>
     </Card>
