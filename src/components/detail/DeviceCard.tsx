@@ -103,7 +103,16 @@ function DevicePanel({
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">DN</span>
-              <span className="font-mono">{info.dirNumber || "N/A"}</span>
+              <span className="font-mono text-xs">
+                {info.dirNumber
+                  ? info.dirNumber
+                      .split(",")
+                      .map((dn: string) =>
+                        dn.replace(/-Registered$/i, "").trim(),
+                      )
+                      .join(", ")
+                  : "N/A"}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Description</span>
