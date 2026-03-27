@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getDeviceInfo, getPhoneWebPage } from "@/api/client";
+import { getDeviceBatch, getPhoneWebPage } from "@/api/client";
 
 interface DeviceCardProps {
   origDevice: string;
@@ -43,35 +43,18 @@ function statusBadge(status: string) {
 
 function DevicePanel({
   deviceName,
+  info,
   clusterId,
 }: {
   deviceName: string;
+  info: DeviceInfo | null;
   clusterId?: string;
 }) {
-  const [info, setInfo] = useState<DeviceInfo | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [webPage, setWebPage] = useState<{
     page: string;
     html: string;
   } | null>(null);
   const [webLoading, setWebLoading] = useState(false);
-
-  // Skip non-phone devices (trunks, CTI ports, etc.)
-  const isPhone = /^SEP/i.test(deviceName);
-
-  const handleLookup = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await getDeviceInfo(deviceName, clusterId);
-      setInfo(data);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleWebPage = async (page: string) => {
     setWebLoading(true);
@@ -85,27 +68,11 @@ function DevicePanel({
     }
   };
 
-  if (!isPhone) return null;
-
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="font-mono text-sm font-medium">{deviceName}</p>
-        </div>
-        {!info && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleLookup}
-            disabled={loading}
-          >
-            {loading ? "Querying..." : "Lookup"}
-          </Button>
-        )}
+      <div>
+        <p className="font-mono text-sm font-medium">{deviceName}</p>
       </div>
-
-      {error && <p className="text-sm text-destructive">{error}</p>}
 
       {info && !info.found && (
         <p className="text-sm text-muted-foreground">
@@ -237,30 +204,75 @@ export function DeviceCard({
 }: DeviceCardProps) {
   const hasOrig = /^SEP/i.test(origDevice);
   const hasDest = /^SEP/i.test(destDevice);
+  const [deviceData, setDeviceData] = useState<Record<string, DeviceInfo>>({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [fetched, setFetched] = useState(false);
 
   if (!hasOrig && !hasDest) return null;
 
+  const phoneDevices = [
+    ...(hasOrig ? [origDevice] : []),
+    ...(hasDest && destDevice !== origDevice ? [destDevice] : []),
+  ];
+
+  const handleLookup = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getDeviceBatch(phoneDevices, clusterId);
+      setDeviceData(data.devices);
+      setFetched(true);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Card className="p-6">
-      <h3 className="text-lg font-semibold mb-4">Device Diagnostics</h3>
-      <div className="space-y-6">
-        {hasOrig && (
-          <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">
-              Originating
-            </p>
-            <DevicePanel deviceName={origDevice} clusterId={clusterId} />
-          </div>
-        )}
-        {hasDest && (
-          <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">
-              Destination
-            </p>
-            <DevicePanel deviceName={destDevice} clusterId={clusterId} />
-          </div>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold">Device Diagnostics</h3>
+        {!fetched && (
+          <Button onClick={handleLookup} disabled={loading}>
+            {loading
+              ? "Querying RISPort..."
+              : `Lookup ${phoneDevices.length} device${phoneDevices.length > 1 ? "s" : ""}`}
+          </Button>
         )}
       </div>
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
+      {fetched && (
+        <div className="space-y-6">
+          {hasOrig && (
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">
+                Originating
+              </p>
+              <DevicePanel
+                deviceName={origDevice}
+                info={deviceData[origDevice] || null}
+                clusterId={clusterId}
+              />
+            </div>
+          )}
+          {hasDest && (
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">
+                Destination
+              </p>
+              <DevicePanel
+                deviceName={destDevice}
+                info={deviceData[destDevice] || null}
+                clusterId={clusterId}
+              />
+            </div>
+          )}
+        </div>
+      )}
     </Card>
   );
 }

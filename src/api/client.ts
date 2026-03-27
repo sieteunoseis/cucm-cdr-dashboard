@@ -120,6 +120,13 @@ export function unstarCall(callId: string, callManagerId: string) {
 }
 
 // Device info
+export function getDeviceBatch(devices: string[], clusterId?: string) {
+  return apiFetch<{ devices: Record<string, any> }>("/api/v1/device/batch", {
+    method: "POST",
+    body: JSON.stringify({ devices, cluster: clusterId }),
+  });
+}
+
 export function getDeviceInfo(deviceName: string, clusterId?: string) {
   const qs = clusterId ? `?cluster=${encodeURIComponent(clusterId)}` : "";
   return apiFetch<{
