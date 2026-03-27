@@ -8,6 +8,7 @@ import { CollectLogs } from "@/components/detail/CollectLogs";
 import { SipLadder } from "@/components/detail/SipLadder";
 import { RelatedCalls } from "@/components/detail/RelatedCalls";
 import { RawCdr } from "@/components/detail/RawCdr";
+import { DeviceCard } from "@/components/detail/DeviceCard";
 
 export function CallDetailPage() {
   const { callId } = useParams();
@@ -54,6 +55,10 @@ export function CallDetailPage() {
         callId={callId!}
         callManagerId={callManagerId}
         primaryCdr={primary}
+      />
+      <DeviceCard
+        origDevice={primary.origdevicename || ""}
+        destDevice={primary.destdevicename || ""}
       />
       <SipLadder callId={callId!} callManagerId={callManagerId} cdrLegs={cdr} />
       <CollectLogs

@@ -87,3 +87,56 @@ export function relatedCalls(
 export function healthCheck() {
   return apiFetch<any>("/api/v1/health");
 }
+
+// Starred calls
+export function getStarred() {
+  return apiFetch<{ starred: any[]; count: number }>("/api/v1/starred");
+}
+
+export function isStarred(callId: string, callManagerId: string) {
+  return apiFetch<{ starred: boolean; data: any }>(
+    `/api/v1/starred/${callId}/${callManagerId}`,
+  );
+}
+
+export function starCall(callId: string, callManagerId: string, note?: string) {
+  return apiFetch<{ starred: boolean; data: any }>(
+    `/api/v1/starred/${callId}/${callManagerId}`,
+    { method: "POST", body: JSON.stringify({ note }) },
+  );
+}
+
+export function unstarCall(callId: string, callManagerId: string) {
+  return apiFetch<{ starred: boolean }>(
+    `/api/v1/starred/${callId}/${callManagerId}`,
+    { method: "DELETE" },
+  );
+}
+
+// Device info
+export function getDeviceInfo(deviceName: string) {
+  return apiFetch<{
+    found: boolean;
+    deviceName: string;
+    ip: string | null;
+    status: string;
+    statusReason: number;
+    statusReasonText: string;
+    model: string;
+    protocol: string;
+    activeLoadId: string;
+    dirNumber: string;
+    description: string;
+    webCapable: boolean;
+    webPages: Record<string, string> | null;
+  }>(`/api/v1/device/${deviceName}`);
+}
+
+export function getPhoneWebPage(deviceName: string, page: string) {
+  return apiFetch<{
+    deviceName: string;
+    ip: string;
+    page: string;
+    html: string;
+  }>(`/api/v1/device/${deviceName}/web/${page}`);
+}
