@@ -9,6 +9,7 @@
 
 ## Call Analysis
 
+- [ ] Snapshot device state with starred calls (RISPort, phone logs, CDP, config)
 - [ ] Export SIP ladder as image/PDF for tickets
 - [ ] Call flow diagram (visual path across CUCM nodes)
 - [ ] Compare two calls side-by-side
