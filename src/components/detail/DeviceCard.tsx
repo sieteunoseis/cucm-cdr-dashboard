@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getDeviceBatch, getPhoneWebPage } from "@/api/client";
+import { getDeviceBatch, getPhoneWebPage, getPhoneLogs } from "@/api/client";
 
 interface DeviceCardProps {
   origDevice: string;
@@ -57,6 +57,16 @@ function DevicePanel({
     error?: string;
   } | null>(null);
   const [webLoading, setWebLoading] = useState(false);
+  const [availableLogs, setAvailableLogs] = useState<string[]>([]);
+
+  // Fetch available log files when device has IP
+  useEffect(() => {
+    if (info?.found && info.ip && info.webCapable) {
+      getPhoneLogs(deviceName, clusterId)
+        .then((r) => setAvailableLogs(r.logs))
+        .catch(() => setAvailableLogs(["messages"]));
+    }
+  }, [deviceName, clusterId, info?.ip]);
 
   const handleFetchPage = async (page: string) => {
     setWebLoading(true);
@@ -138,26 +148,24 @@ function DevicePanel({
             <div className="space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs text-muted-foreground">Fetch:</span>
-                {["network", "config", "status", "messages", "messages.0"].map(
-                  (p) => (
-                    <Button
-                      key={p}
-                      size="sm"
-                      variant="outline"
-                      className="h-6 text-xs"
-                      onClick={() => handleFetchPage(p)}
-                      disabled={webLoading}
-                    >
-                      {p === "network"
-                        ? "Network/CDP"
-                        : p === "messages"
-                          ? "Syslog"
-                          : p === "messages.0"
-                            ? "Syslog.0"
-                            : p.charAt(0).toUpperCase() + p.slice(1)}
-                    </Button>
-                  ),
-                )}
+                {["network", "config", "status", ...availableLogs].map((p) => (
+                  <Button
+                    key={p}
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-xs"
+                    onClick={() => handleFetchPage(p)}
+                    disabled={webLoading}
+                  >
+                    {p === "network"
+                      ? "Network/CDP"
+                      : p === "messages"
+                        ? "Syslog"
+                        : p.startsWith("messages.")
+                          ? `Syslog.${p.split(".")[1]}`
+                          : p.charAt(0).toUpperCase() + p.slice(1)}
+                  </Button>
+                ))}
                 <a
                   href={`http://${info.ip}`}
                   target="_blank"

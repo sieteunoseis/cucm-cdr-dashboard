@@ -155,6 +155,13 @@ export function getDeviceInfo(deviceName: string, clusterId?: string) {
   }>(`/api/v1/device/${deviceName}${qs}`);
 }
 
+export function getPhoneLogs(deviceName: string, clusterId?: string) {
+  const params = clusterId ? `?cluster=${clusterId}` : "";
+  return apiFetch<{ logs: string[] }>(
+    `/api/v1/device/${deviceName}/logs${params}`,
+  );
+}
+
 export function getPhoneWebPage(
   deviceName: string,
   page: string,
