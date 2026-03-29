@@ -34,6 +34,7 @@ export function SearchPage() {
   const [hideConference, setHideConference] = useState(false);
   const [phonesOnly, setPhonesOnly] = useState(false);
   const [showStarredOnly, setShowStarredOnly] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const lastSearchRef = useRef<Record<string, string> | null>(null);
   const { results, count, loading, error, search } = useSearch();
@@ -289,40 +290,72 @@ export function SearchPage() {
                   Export CSV
                 </Button>
               </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <Switch
-                  checked={hideRecording}
-                  onCheckedChange={setHideRecording}
-                />
-                Hide recording ({hiddenCounts.recording})
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <Switch
-                  checked={hideZeroDuration}
-                  onCheckedChange={setHideZeroDuration}
-                />
-                Hide 0s calls ({hiddenCounts.zeroDuration})
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <Switch
-                  checked={hideTransfer}
-                  onCheckedChange={setHideTransfer}
-                />
-                Hide transfers ({hiddenCounts.transfer})
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <Switch
-                  checked={hideConference}
-                  onCheckedChange={setHideConference}
-                />
-                Hide conferences ({hiddenCounts.conference})
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <Switch checked={phonesOnly} onCheckedChange={setPhonesOnly} />
-                Phones only ({hiddenCounts.noPhone} trunk/gw)
-              </label>
+              <div className="relative">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-xs"
+                  onClick={() => setFiltersOpen(!filtersOpen)}
+                >
+                  Filters
+                  {(hideRecording ||
+                    hideZeroDuration ||
+                    hideTransfer ||
+                    hideConference ||
+                    phonesOnly) && (
+                    <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] w-4 h-4">
+                      {
+                        [
+                          hideRecording,
+                          hideZeroDuration,
+                          hideTransfer,
+                          hideConference,
+                          phonesOnly,
+                        ].filter(Boolean).length
+                      }
+                    </span>
+                  )}
+                </Button>
+                {filtersOpen && (
+                  <div className="absolute right-0 top-8 z-50 rounded-lg border border-border bg-popover p-3 shadow-lg space-y-2.5 w-64">
+                    <label className="flex items-center justify-between cursor-pointer text-xs">
+                      <span>Hide recording ({hiddenCounts.recording})</span>
+                      <Switch
+                        checked={hideRecording}
+                        onCheckedChange={setHideRecording}
+                      />
+                    </label>
+                    <label className="flex items-center justify-between cursor-pointer text-xs">
+                      <span>Hide 0s calls ({hiddenCounts.zeroDuration})</span>
+                      <Switch
+                        checked={hideZeroDuration}
+                        onCheckedChange={setHideZeroDuration}
+                      />
+                    </label>
+                    <label className="flex items-center justify-between cursor-pointer text-xs">
+                      <span>Hide transfers ({hiddenCounts.transfer})</span>
+                      <Switch
+                        checked={hideTransfer}
+                        onCheckedChange={setHideTransfer}
+                      />
+                    </label>
+                    <label className="flex items-center justify-between cursor-pointer text-xs">
+                      <span>Hide conferences ({hiddenCounts.conference})</span>
+                      <Switch
+                        checked={hideConference}
+                        onCheckedChange={setHideConference}
+                      />
+                    </label>
+                    <label className="flex items-center justify-between cursor-pointer text-xs">
+                      <span>Phones only ({hiddenCounts.noPhone} trunk/gw)</span>
+                      <Switch
+                        checked={phonesOnly}
+                        onCheckedChange={setPhonesOnly}
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <div className="space-y-2">
