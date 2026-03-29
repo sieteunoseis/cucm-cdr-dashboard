@@ -119,6 +119,15 @@ export function unstarCall(callId: string, callManagerId: string) {
   );
 }
 
+export function checkStarred(
+  calls: { callId: string; callManagerId: string }[],
+) {
+  return apiFetch<{ starred: Record<string, boolean> }>(
+    "/api/v1/starred/check",
+    { method: "POST", body: JSON.stringify({ calls }) },
+  );
+}
+
 // Device info
 export function getDeviceBatch(devices: string[], clusterId?: string) {
   return apiFetch<{ devices: Record<string, any> }>("/api/v1/device/batch", {

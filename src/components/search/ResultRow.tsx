@@ -9,6 +9,8 @@ import type { CdrResult } from "@/hooks/useSearch";
 
 interface ResultRowProps {
   result: CdrResult;
+  starred?: boolean;
+  onToggleStar?: (callId: string, cmId: string, starred: boolean) => void;
 }
 
 export function isRecordingLeg(result: CdrResult): boolean {
@@ -38,7 +40,7 @@ export function isConference(result: CdrResult): boolean {
   return (result.joinonbehalfof || 0) !== 0;
 }
 
-export function ResultRow({ result }: ResultRowProps) {
+export function ResultRow({ result, starred, onToggleStar }: ResultRowProps) {
   const navigate = useNavigate();
   const isConnected = result.datetimeconnect != null;
   const isRecording = isRecordingLeg(result);
@@ -47,14 +49,16 @@ export function ResultRow({ result }: ResultRowProps) {
 
   return (
     <div
-      onClick={() =>
-        navigate(
-          `/call/${result.globalcallid_callid}?cm=${result.globalcallid_callmanagerid}`,
-        )
-      }
       className={`flex items-center justify-between rounded-lg border border-border p-4 hover:bg-accent cursor-pointer transition-colors ${isRecording ? "opacity-60" : ""}`}
     >
-      <div className="flex-1 min-w-0">
+      <div
+        className="flex-1 min-w-0"
+        onClick={() =>
+          navigate(
+            `/call/${result.globalcallid_callid}?cm=${result.globalcallid_callmanagerid}`,
+          )
+        }
+      >
         <div className="flex items-center gap-2 text-sm font-mono">
           <span className="font-medium">
             {result.callingpartynumber || "N/A"}
@@ -100,7 +104,7 @@ export function ResultRow({ result }: ResultRowProps) {
           </span>
         </div>
       </div>
-      <div className="flex items-center gap-4 ml-4 shrink-0">
+      <div className="flex items-center gap-3 ml-4 shrink-0">
         <div className="text-right">
           <div className="text-sm font-medium">
             {formatDurationFromInterval(result.duration)}
@@ -117,6 +121,22 @@ export function ResultRow({ result }: ResultRowProps) {
             ? "Connected"
             : result.destcause_description || `Cause ${result.destcause_value}`}
         </Badge>
+        {onToggleStar && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleStar(
+                String(result.globalcallid_callid),
+                String(result.globalcallid_callmanagerid),
+                !starred,
+              );
+            }}
+            className="text-lg transition-colors hover:scale-110 w-6 text-center"
+            title={starred ? "Unstar call" : "Star call"}
+          >
+            {starred ? "★" : "☆"}
+          </button>
+        )}
       </div>
     </div>
   );

@@ -15,6 +15,8 @@ import {
 import { useSearch } from "@/hooks/useSearch";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { checkStarred, starCall, unstarCall, getStarred } from "@/api/client";
+import type { CdrResult } from "@/hooks/useSearch";
 
 const REFRESH_INTERVAL = 30000;
 
@@ -29,19 +31,91 @@ export function SearchPage() {
   const [hideZeroDuration, setHideZeroDuration] = useState(false);
   const [hideTransfer, setHideTransfer] = useState(false);
   const [hideConference, setHideConference] = useState(false);
+  const [showStarredOnly, setShowStarredOnly] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const lastSearchRef = useRef<Record<string, string> | null>(null);
   const { results, count, loading, error, search } = useSearch();
 
+  // Starred state
+  const [starredMap, setStarredMap] = useState<Record<string, boolean>>({});
+  const [starredResults, setStarredResults] = useState<CdrResult[]>([]);
+  const [starredLoading, setStarredLoading] = useState(false);
+
+  // Fetch starred status for current results
+  useEffect(() => {
+    if (results.length === 0) return;
+    const calls = results.map((r) => ({
+      callId: String(r.globalcallid_callid),
+      callManagerId: String(r.globalcallid_callmanagerid),
+    }));
+    checkStarred(calls)
+      .then((data) => setStarredMap(data.starred))
+      .catch(() => {});
+  }, [results]);
+
+  // Load starred calls when filter is toggled on
+  useEffect(() => {
+    if (!showStarredOnly) return;
+    setStarredLoading(true);
+    getStarred()
+      .then((data) => {
+        setStarredResults(data.starred as CdrResult[]);
+        // Mark all as starred
+        const map: Record<string, boolean> = {};
+        for (const r of data.starred) {
+          map[`${r.globalcallid_callid}:${r.globalcallid_callmanagerid}`] =
+            true;
+        }
+        setStarredMap((prev) => ({ ...prev, ...map }));
+      })
+      .catch(() => {})
+      .finally(() => setStarredLoading(false));
+  }, [showStarredOnly]);
+
+  const handleToggleStar = useCallback(
+    async (callId: string, cmId: string, star: boolean) => {
+      const key = `${callId}:${cmId}`;
+      try {
+        if (star) {
+          await starCall(callId, cmId);
+          setStarredMap((prev) => ({ ...prev, [key]: true }));
+        } else {
+          await unstarCall(callId, cmId);
+          setStarredMap((prev) => {
+            const next = { ...prev };
+            delete next[key];
+            return next;
+          });
+          // Remove from starred view if showing starred only
+          if (showStarredOnly) {
+            setStarredResults((prev) =>
+              prev.filter(
+                (r) =>
+                  !(
+                    String(r.globalcallid_callid) === callId &&
+                    String(r.globalcallid_callmanagerid) === cmId
+                  ),
+              ),
+            );
+          }
+        }
+      } catch {}
+    },
+    [showStarredOnly],
+  );
+
+  const displayResults = showStarredOnly ? starredResults : results;
+  const displayLoading = showStarredOnly ? starredLoading : loading;
+
   const { filteredResults, hiddenCounts } = useMemo(() => {
-    let filtered = results;
+    let filtered = displayResults;
     const counts = {
       recording: 0,
       zeroDuration: 0,
       transfer: 0,
       conference: 0,
     };
-    for (const r of results) {
+    for (const r of displayResults) {
       if (isRecordingLeg(r)) counts.recording++;
       if (
         r.duration === "00:00:00" ||
@@ -63,10 +137,17 @@ export function SearchPage() {
     if (hideTransfer) filtered = filtered.filter((r) => !isTransfer(r));
     if (hideConference) filtered = filtered.filter((r) => !isConference(r));
     return { filteredResults: filtered, hiddenCounts: counts };
-  }, [results, hideRecording, hideZeroDuration, hideTransfer, hideConference]);
+  }, [
+    displayResults,
+    hideRecording,
+    hideZeroDuration,
+    hideTransfer,
+    hideConference,
+  ]);
 
   const handleSearch = useCallback(
     (query: string) => {
+      setShowStarredOnly(false);
       setSearchParams({ q: query, t: timeRange }, { replace: true });
       const params = { number: query, last: timeRange, limit: String(limit) };
       lastSearchRef.current = params;
@@ -77,6 +158,7 @@ export function SearchPage() {
 
   const handleAdvancedSearch = useCallback(
     (params: AdvancedSearchParams) => {
+      setShowStarredOnly(false);
       const clean: Record<string, string> = {};
       for (const [k, v] of Object.entries(params)) {
         if (v) clean[k] = v;
@@ -116,7 +198,16 @@ export function SearchPage() {
           initialValue={initialQuery}
         />
         <div className="flex items-center justify-between">
-          <TimeRange selected={timeRange} onSelect={setTimeRange} />
+          <div className="flex items-center gap-2">
+            <TimeRange selected={timeRange} onSelect={setTimeRange} />
+            <Button
+              variant={showStarredOnly ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setShowStarredOnly(!showStarredOnly)}
+            >
+              {showStarredOnly ? "★ Starred" : "☆ Starred"}
+            </Button>
+          </div>
           <div className="flex items-center gap-2">
             <Button
               variant={autoRefresh ? "secondary" : "ghost"}
@@ -128,19 +219,23 @@ export function SearchPage() {
             </Button>
           </div>
         </div>
-        <AdvancedSearch onSearch={handleAdvancedSearch} loading={loading} />
+        {!showStarredOnly && (
+          <AdvancedSearch onSearch={handleAdvancedSearch} loading={loading} />
+        )}
       </div>
       {error && (
         <div className="rounded-lg bg-destructive/10 p-4 text-destructive text-sm">
           {error}
         </div>
       )}
-      {results.length > 0 && (
+      {displayResults.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <p className="text-sm text-muted-foreground">
-                Showing {filteredResults.length} of {count} results
+                Showing {filteredResults.length} of{" "}
+                {showStarredOnly ? starredResults.length : count} results
+                {showStarredOnly && " (starred)"}
               </p>
               <Button
                 variant="ghost"
@@ -218,10 +313,22 @@ export function SearchPage() {
           </div>
           <div className="space-y-2">
             {filteredResults.map((r) => (
-              <ResultRow key={r.pkid} result={r} />
+              <ResultRow
+                key={
+                  r.pkid ||
+                  `${r.globalcallid_callid}:${r.globalcallid_callmanagerid}`
+                }
+                result={r}
+                starred={
+                  !!starredMap[
+                    `${r.globalcallid_callid}:${r.globalcallid_callmanagerid}`
+                  ]
+                }
+                onToggleStar={handleToggleStar}
+              />
             ))}
           </div>
-          {results.length >= limit && (
+          {!showStarredOnly && results.length >= limit && (
             <Button
               variant="outline"
               className="w-full"
@@ -232,9 +339,11 @@ export function SearchPage() {
           )}
         </div>
       )}
-      {!loading && results.length === 0 && count === 0 && (
+      {!displayLoading && displayResults.length === 0 && (
         <div className="text-center py-12 text-muted-foreground">
-          No calls found in the selected time range.
+          {showStarredOnly
+            ? "No starred calls yet. Star a call from the detail page or search results."
+            : "No calls found in the selected time range."}
         </div>
       )}
     </div>
