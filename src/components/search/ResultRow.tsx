@@ -40,6 +40,15 @@ export function isConference(result: CdrResult): boolean {
   return (result.joinonbehalfof || 0) !== 0;
 }
 
+// Has a phone device (SEP, AN, JBR, TCT, BOT, CSF) on either side
+const PHONE_PREFIX = /^(SEP|AN[A-F0-9]|JBR|TCT|BOT|CSF)/i;
+export function hasPhoneDevice(result: CdrResult): boolean {
+  return (
+    PHONE_PREFIX.test(result.origdevicename || "") ||
+    PHONE_PREFIX.test(result.destdevicename || "")
+  );
+}
+
 export function ResultRow({ result, starred, onToggleStar }: ResultRowProps) {
   const navigate = useNavigate();
   const isConnected = result.datetimeconnect != null;

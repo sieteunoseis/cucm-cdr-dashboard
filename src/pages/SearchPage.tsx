@@ -11,6 +11,7 @@ import {
   isRecordingLeg,
   isTransfer,
   isConference,
+  hasPhoneDevice,
 } from "@/components/search/ResultRow";
 import { useSearch } from "@/hooks/useSearch";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ export function SearchPage() {
   const [hideZeroDuration, setHideZeroDuration] = useState(false);
   const [hideTransfer, setHideTransfer] = useState(false);
   const [hideConference, setHideConference] = useState(false);
+  const [phonesOnly, setPhonesOnly] = useState(false);
   const [showStarredOnly, setShowStarredOnly] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const lastSearchRef = useRef<Record<string, string> | null>(null);
@@ -114,6 +116,7 @@ export function SearchPage() {
       zeroDuration: 0,
       transfer: 0,
       conference: 0,
+      noPhone: 0,
     };
     for (const r of displayResults) {
       if (isRecordingLeg(r)) counts.recording++;
@@ -125,6 +128,7 @@ export function SearchPage() {
         counts.zeroDuration++;
       if (isTransfer(r)) counts.transfer++;
       if (isConference(r)) counts.conference++;
+      if (!hasPhoneDevice(r)) counts.noPhone++;
     }
     if (hideRecording) filtered = filtered.filter((r) => !isRecordingLeg(r));
     if (hideZeroDuration)
@@ -136,6 +140,7 @@ export function SearchPage() {
       );
     if (hideTransfer) filtered = filtered.filter((r) => !isTransfer(r));
     if (hideConference) filtered = filtered.filter((r) => !isConference(r));
+    if (phonesOnly) filtered = filtered.filter((r) => hasPhoneDevice(r));
     return { filteredResults: filtered, hiddenCounts: counts };
   }, [
     displayResults,
@@ -143,6 +148,7 @@ export function SearchPage() {
     hideZeroDuration,
     hideTransfer,
     hideConference,
+    phonesOnly,
   ]);
 
   const handleSearch = useCallback(
@@ -230,57 +236,61 @@ export function SearchPage() {
       )}
       {displayResults.length > 0 && (
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <p className="text-sm text-muted-foreground">
-                Showing {filteredResults.length} of{" "}
-                {showStarredOnly ? starredResults.length : count} results
-                {showStarredOnly && " (starred)"}
-              </p>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 text-xs"
-                onClick={() => {
-                  const cols = [
-                    "callingpartynumber",
-                    "finalcalledpartynumber",
-                    "originalcalledpartynumber",
-                    "origdevicename",
-                    "destdevicename",
-                    "orig_device_description",
-                    "dest_device_description",
-                    "datetimeorigination",
-                    "datetimeconnect",
-                    "datetimedisconnect",
-                    "duration",
-                    "destcause_value",
-                    "destcause_description",
-                    "globalcallid_callid",
-                    "globalcallid_callmanagerid",
-                    "globalcallid_clusterid",
-                  ];
-                  const header = cols.join(",");
-                  const rows = filteredResults.map((r) =>
-                    cols
-                      .map((c) => `"${String(r[c] ?? "").replace(/"/g, '""')}"`)
-                      .join(","),
-                  );
-                  const blob = new Blob([`${header}\n${rows.join("\n")}`], {
-                    type: "text/csv",
-                  });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `cdr-export-${Date.now()}.csv`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }}
-              >
-                Export CSV
-              </Button>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <p className="text-sm text-muted-foreground">
+                  Showing {filteredResults.length} of{" "}
+                  {showStarredOnly ? starredResults.length : count} results
+                  {showStarredOnly && " (starred)"}
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-xs"
+                  onClick={() => {
+                    const cols = [
+                      "callingpartynumber",
+                      "finalcalledpartynumber",
+                      "originalcalledpartynumber",
+                      "origdevicename",
+                      "destdevicename",
+                      "orig_device_description",
+                      "dest_device_description",
+                      "datetimeorigination",
+                      "datetimeconnect",
+                      "datetimedisconnect",
+                      "duration",
+                      "destcause_value",
+                      "destcause_description",
+                      "globalcallid_callid",
+                      "globalcallid_callmanagerid",
+                      "globalcallid_clusterid",
+                    ];
+                    const header = cols.join(",");
+                    const rows = filteredResults.map((r) =>
+                      cols
+                        .map(
+                          (c) => `"${String(r[c] ?? "").replace(/"/g, '""')}"`,
+                        )
+                        .join(","),
+                    );
+                    const blob = new Blob([`${header}\n${rows.join("\n")}`], {
+                      type: "text/csv",
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `cdr-export-${Date.now()}.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  Export CSV
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-5 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
               <label className="flex items-center gap-1.5 cursor-pointer">
                 <Switch
                   checked={hideRecording}
@@ -308,6 +318,10 @@ export function SearchPage() {
                   onCheckedChange={setHideConference}
                 />
                 Hide conferences ({hiddenCounts.conference})
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <Switch checked={phonesOnly} onCheckedChange={setPhonesOnly} />
+                Phones only ({hiddenCounts.noPhone} trunk/gw)
               </label>
             </div>
           </div>
