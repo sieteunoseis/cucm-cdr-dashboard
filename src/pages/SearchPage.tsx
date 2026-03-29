@@ -347,7 +347,7 @@ export function SearchPage() {
                       />
                     </label>
                     <label className="flex items-center justify-between cursor-pointer text-xs">
-                      <span>Phones only ({hiddenCounts.noPhone} trunk/gw)</span>
+                      <span>Phones only</span>
                       <Switch
                         checked={phonesOnly}
                         onCheckedChange={setPhonesOnly}
