@@ -213,16 +213,17 @@ export function SearchPage() {
     [search],
   );
 
-  // Load recent calls on mount (or re-run search when returning via back button)
+  // Load calls on mount and when time range changes
   useEffect(() => {
+    if (showStarredOnly) return;
     const params: Record<string, string> = {
-      last: initialQuery ? initialTimeRange : timeRange,
+      last: timeRange,
       limit: String(limit),
     };
     if (initialQuery) params.number = initialQuery;
     lastSearchRef.current = params;
     search(params);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [timeRange]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-refresh
   useEffect(() => {
