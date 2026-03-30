@@ -174,7 +174,11 @@ export function SipLadder({
   };
 
   const filtered = messages.filter(
-    (m) => m.method !== "REGISTER" && !(m.cseq && m.cseq.includes("REGISTER")),
+    (m) =>
+      m.method !== "REGISTER" &&
+      m.method !== "NOTIFY" &&
+      m.method !== "SUBSCRIBE" &&
+      !(m.cseq && /REGISTER|NOTIFY|SUBSCRIBE/i.test(m.cseq)),
   );
 
   const remoteIps = [...new Set(filtered.map((m) => m.remoteIp))];
