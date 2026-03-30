@@ -201,7 +201,13 @@ function DevicePanel({
                     </p>
                   )}
 
-                  {phoneData.data && (
+                  {phoneData.data && phoneData.data.length === 0 && (
+                    <p className="p-3 text-sm text-muted-foreground">
+                      No data available
+                    </p>
+                  )}
+
+                  {phoneData.data && phoneData.data.length > 0 && (
                     <table className="w-full text-xs">
                       <tbody>
                         {phoneData.data.map(
