@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { sipLadder } from "@/api/client";
+import { sipLadder, getSnapshot } from "@/api/client";
 
 interface SipLadderProps {
   callId: string;
@@ -125,7 +125,28 @@ export function SipLadder({
     files_searched: number;
   } | null>(cached?.meta || null);
 
+  const [fromSnapshot, setFromSnapshot] = useState(false);
+
+  // Check for saved snapshot on mount
+  useEffect(() => {
+    if (fetched || !callManagerId) return;
+    getSnapshot(callId, callManagerId, "sip-trace")
+      .then((data) => {
+        if (data.messages && data.messages.length > 0) {
+          setMessages(data.messages);
+          setMeta({
+            count: data.count,
+            files_searched: data.files_searched,
+          });
+          setFetched(true);
+          setFromSnapshot(true);
+        }
+      })
+      .catch(() => {}); // No snapshot — that's fine
+  }, [callId, callManagerId]);
+
   const handleFetch = async () => {
+    setFromSnapshot(false);
     setLoading(true);
     setError(null);
     try {
@@ -169,12 +190,31 @@ export function SipLadder({
   return (
     <Card className="p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold">SIP Ladder</h3>
-        {!fetched && (
-          <Button onClick={handleFetch} disabled={loading}>
-            {loading ? "Fetching traces..." : "Load SIP Trace"}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <h3 className="text-lg font-semibold">SIP Ladder</h3>
+          {fromSnapshot && (
+            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+              cached
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {fromSnapshot && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleFetch}
+              disabled={loading}
+            >
+              {loading ? "Refreshing..." : "Refresh from CUCM"}
+            </Button>
+          )}
+          {!fetched && (
+            <Button onClick={handleFetch} disabled={loading}>
+              {loading ? "Fetching traces..." : "Load SIP Trace"}
+            </Button>
+          )}
+        </div>
       </div>
 
       {error && (

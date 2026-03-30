@@ -128,6 +128,37 @@ export function checkStarred(
   );
 }
 
+// Snapshots
+export function getSnapshots(callId: string, cmId: string) {
+  return apiFetch<{ snapshots: any[] }>(`/api/v1/snapshots/${callId}/${cmId}`);
+}
+
+export function getSnapshot(
+  callId: string,
+  cmId: string,
+  type: string,
+  device?: string,
+) {
+  const params = device ? `?device=${device}` : "";
+  return apiFetch<any>(`/api/v1/snapshots/${callId}/${cmId}/${type}${params}`);
+}
+
+export function saveSnapshot(
+  callId: string,
+  cmId: string,
+  type: string,
+  content: string | object,
+  deviceName?: string,
+) {
+  return apiFetch<{ saved: boolean; filePath: string }>(
+    `/api/v1/snapshots/${callId}/${cmId}`,
+    {
+      method: "POST",
+      body: JSON.stringify({ type, deviceName, content }),
+    },
+  );
+}
+
 // Device info
 export function getDeviceBatch(devices: string[], clusterId?: string) {
   return apiFetch<{ devices: Record<string, any> }>("/api/v1/device/batch", {

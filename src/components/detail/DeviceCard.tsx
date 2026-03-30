@@ -2,12 +2,19 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getDeviceBatch, getPhoneWebPage, getPhoneLogs } from "@/api/client";
+import {
+  getDeviceBatch,
+  getPhoneWebPage,
+  getPhoneLogs,
+  saveSnapshot,
+} from "@/api/client";
 
 interface DeviceCardProps {
   origDevice: string;
   destDevice: string;
   clusterId?: string;
+  callId?: string;
+  callManagerId?: string;
 }
 
 interface DeviceInfo {
@@ -45,10 +52,14 @@ function DevicePanel({
   deviceName,
   info,
   clusterId,
+  callId,
+  callManagerId,
 }: {
   deviceName: string;
   info: DeviceInfo | null;
   clusterId?: string;
+  callId?: string;
+  callManagerId?: string;
 }) {
   const [phoneData, setPhoneData] = useState<{
     page: string;
@@ -77,6 +88,13 @@ function DevicePanel({
         data: result.data,
         text: result.text,
       });
+      // Auto-save snapshot if we have call context
+      if (callId && callManagerId) {
+        const content = result.text || JSON.stringify(result.data);
+        saveSnapshot(callId, callManagerId, page, content, deviceName).catch(
+          () => {},
+        );
+      }
     } catch (err: any) {
       setPhoneData({ page, error: err.message });
     } finally {
@@ -246,6 +264,8 @@ export function DeviceCard({
   origDevice,
   destDevice,
   clusterId,
+  callId,
+  callManagerId,
 }: DeviceCardProps) {
   const hasOrig = /^SEP/i.test(origDevice);
   const hasDest = /^SEP/i.test(destDevice);
@@ -301,6 +321,8 @@ export function DeviceCard({
                 deviceName={origDevice}
                 info={deviceData[origDevice] || null}
                 clusterId={clusterId}
+                callId={callId}
+                callManagerId={callManagerId}
               />
             </div>
           )}
@@ -313,6 +335,8 @@ export function DeviceCard({
                 deviceName={destDevice}
                 info={deviceData[destDevice] || null}
                 clusterId={clusterId}
+                callId={callId}
+                callManagerId={callManagerId}
               />
             </div>
           )}
