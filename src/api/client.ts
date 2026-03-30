@@ -45,16 +45,71 @@ export function executeSql(query: string) {
   }>("/api/v1/cdr/sql", { method: "POST", body: JSON.stringify({ query }) });
 }
 
-export function sipLadder(callId: string, callManagerId?: string) {
-  return apiFetch<{
-    messages: any[];
-    count: number;
-    callIds: string[];
-    files_searched: number;
-    timeWindow: { from: string; to: string };
-  }>("/api/v1/cdr/logs/sip-ladder", {
+interface SipLadderResult {
+  messages: any[];
+  count: number;
+  callIds: string[];
+  files_searched: number;
+  timeWindow: { from: string; to: string };
+}
+
+export interface SipLadderJobStatus {
+  jobId: string;
+  status: "pending" | "downloading" | "parsing" | "complete" | "error";
+  progress: { filesTotal: number; filesDownloaded: number; node: string };
+  elapsed?: number;
+  result?: SipLadderResult;
+  error?: string;
+}
+
+// Start a background SIP ladder job
+export function sipLadderStart(callId: string, callManagerId?: string) {
+  return apiFetch<SipLadderJobStatus>("/api/v1/cdr/logs/sip-ladder", {
     method: "POST",
     body: JSON.stringify({ callId, callManagerId }),
+  });
+}
+
+// Poll for job status
+export function sipLadderStatus(jobId: string) {
+  return apiFetch<SipLadderJobStatus>(
+    `/api/v1/cdr/logs/sip-ladder/status/${encodeURIComponent(jobId)}`,
+  );
+}
+
+// Convenience: start job and poll until complete
+export function sipLadder(
+  callId: string,
+  callManagerId?: string,
+  onProgress?: (status: SipLadderJobStatus) => void,
+): Promise<SipLadderResult> {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const start = await sipLadderStart(callId, callManagerId);
+      if (start.status === "complete" && start.result) {
+        return resolve(start.result);
+      }
+
+      const jobId = start.jobId;
+      const poll = async () => {
+        try {
+          const status = await sipLadderStatus(jobId);
+          onProgress?.(status);
+          if (status.status === "complete" && status.result) {
+            resolve(status.result);
+          } else if (status.status === "error") {
+            reject(new Error(status.error || "SIP trace download failed"));
+          } else {
+            setTimeout(poll, 2000);
+          }
+        } catch (err) {
+          reject(err);
+        }
+      };
+      setTimeout(poll, 2000);
+    } catch (err) {
+      reject(err);
+    }
   });
 }
 

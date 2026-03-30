@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { sipLadder, getSnapshot } from "@/api/client";
+import { sipLadder, getSnapshot, type SipLadderJobStatus } from "@/api/client";
 
 interface SipLadderProps {
   callId: string;
@@ -126,6 +126,13 @@ export function SipLadder({
   } | null>(cached?.meta || null);
 
   const [fromSnapshot, setFromSnapshot] = useState(false);
+  const [progress, setProgress] = useState<{
+    status: string;
+    filesTotal: number;
+    filesDownloaded: number;
+    node: string;
+    elapsed: number;
+  } | null>(null);
 
   // Check for saved snapshot on mount
   useEffect(() => {
@@ -149,8 +156,17 @@ export function SipLadder({
     setFromSnapshot(false);
     setLoading(true);
     setError(null);
+    setProgress(null);
     try {
-      const data = await sipLadder(callId, callManagerId);
+      const data = await sipLadder(callId, callManagerId, (status) => {
+        setProgress({
+          status: status.status,
+          filesTotal: status.progress.filesTotal,
+          filesDownloaded: status.progress.filesDownloaded,
+          node: status.progress.node,
+          elapsed: status.elapsed || 0,
+        });
+      });
       setMessages(data.messages);
       const newMeta = {
         count: data.count,
@@ -158,6 +174,7 @@ export function SipLadder({
       };
       setMeta(newMeta);
       setFetched(true);
+      setProgress(null);
       try {
         sessionStorage.setItem(
           cacheKey(callId, callManagerId),
@@ -170,6 +187,7 @@ export function SipLadder({
       setError(err.message);
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   };
 
@@ -273,9 +291,37 @@ export function SipLadder({
       )}
 
       {loading && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
-          Downloading and parsing SDL traces...
+        <div className="space-y-2 py-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+            {progress ? (
+              <span>
+                {progress.status === "downloading" && progress.node
+                  ? `Querying ${progress.node}...`
+                  : progress.status === "parsing" && progress.filesTotal > 0
+                    ? `Parsing traces: ${progress.filesDownloaded}/${progress.filesTotal} files`
+                    : "Starting trace download..."}
+                {progress.elapsed > 0 && (
+                  <span className="text-xs ml-2">({progress.elapsed}s)</span>
+                )}
+              </span>
+            ) : (
+              "Starting trace download..."
+            )}
+          </div>
+          {progress && progress.filesTotal > 0 && (
+            <div className="ml-6 w-64 h-1.5 bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary rounded-full transition-all"
+                style={{
+                  width: `${Math.round((progress.filesDownloaded / progress.filesTotal) * 100)}%`,
+                }}
+              />
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground/60 ml-6">
+            You can navigate away — the download continues in the background.
+          </p>
         </div>
       )}
 
